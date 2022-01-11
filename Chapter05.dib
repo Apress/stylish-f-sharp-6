@@ -1,0 +1,603 @@
+#!markdown
+
+# Sample code for Chapter 5 of "Stylish F# 6" by Kit Eason
+
+#!markdown
+
+Listing 5-1. *A loop using mutation*
+
+#!fsharp
+
+open System.IO
+
+let latestWriteTime (path : string) (searchPattern : string) =
+    let files = Directory.EnumerateFiles(path, searchPattern,
+                                         SearchOption.AllDirectories)
+    let mutable latestDate = DateTime.MinValue
+    for file in files do
+        let thisDate = File.GetLastWriteTime(file)
+        if thisDate > latestDate then
+            latestDate <- thisDate
+    latestDate
+
+latestWriteTime @"c:\temp" "*.*"
+
+#!markdown
+
+Listing 5-2. *First cut of an immutable latestWriteTime*
+
+#!fsharp
+
+open System.IO
+
+let latestWriteTime (path : string) (searchPattern : string) =
+    Directory.EnumerateFiles(path, searchPattern,
+                             SearchOption.AllDirectories)
+    // Could also just say '|> Seq.map File.GetLastWriteTime' here.
+    |> Seq.map (fun file -> File.GetLastWriteTime(file))
+    |> Seq.max
+
+latestWriteTime @"c:\temp" "*.*"
+
+#!markdown
+
+Listing 5-3. *Defining and using Seq.tryMax to handle the empty case*
+
+#!fsharp
+
+open System.IO
+
+module Seq =
+
+    let tryMax s =
+        if s |> Seq.isEmpty then
+            None
+        else
+            s |> Seq.max |> Some
+
+let tryLatestWriteTime (path : string) (searchPattern : string) =
+    Directory.EnumerateFiles(path, searchPattern,
+                             SearchOption.AllDirectories)
+    |> Seq.map File.GetLastWriteTime
+    |> Seq.tryMax
+
+// Some date
+printfn "Most recent file: %A" (tryLatestWriteTime @"c:\temp" "*.*")
+
+// None
+printfn "Most recent file: %A" (tryLatestWriteTime @"c:\temp" "doesnotexist.*")
+
+#!markdown
+
+Listing 5-4. *Linear Search in mutable style*
+
+#!fsharp
+
+type Student = { Name : string; Grade : char }
+
+let findFirstWithGrade (grade : char) (students : seq<Student>) =
+    let mutable result = { Name = ""; Grade = ' ' }
+    let mutable found = false
+    for student in students do
+        if not found && student.Grade = grade then
+            result <- student
+            found <- true
+    result
+
+// { Name = Jones, B; Grade = 'B' }
+[ { Name = "Garcia, A"; Grade = 'A'}
+  { Name = "Jones, B"; Grade = 'B' }
+  { Name = "Ng, S"; Grade = 'A' } ]
+|> findFirstWithGrade 'B'
+
+#!markdown
+
+Listing 5-5. *Linear Search in immutable style*
+
+#!fsharp
+
+type Student = { Name : string; Grade : char }
+
+let findFirstWithGrade (grade : char) (students : seq<Student>) =
+    students
+    |> Seq.find (fun s -> s.Grade = grade)
+
+// { Name = Jones, B; Grade = 'B' }
+[ { Name = "Garcia, A"; Grade = 'A'}
+  { Name = "Jones, B"; Grade = 'B' }
+  { Name = "Ng, S"; Grade = 'A' } ]
+|> findFirstWithGrade 'B'
+
+#!markdown
+
+Listing 5-6. *Guarded Linear Search in mutable style*
+
+#!fsharp
+
+type Student = { Name : string; Grade : char }
+
+let tryFindFirstWithGrade (grade : char) (students : seq<Student>) =
+    let mutable result = { Name = ""; Grade = ' ' }
+    let mutable found = false
+    for student in students do
+        if not found && student.Grade = grade then
+            result <- student
+            found <- true
+    if found then
+        Some result
+    else
+        None
+
+// Some ({ Name = Jones, B; Grade = 'B' })
+[ { Name = "Garcia, A"; Grade = 'A'}
+  { Name = "Jones, B"; Grade = 'B' }
+  { Name = "Ng, S"; Grade = 'A' } ]
+|> tryFindFirstWithGrade 'B'
+
+#!markdown
+
+Listing 5-7. *Guarded Linear Search in immutable style*
+
+#!fsharp
+
+type Student = { Name : string; Grade : char }
+
+let tryFindFirstWithGrade (grade : char) (students : seq<Student>) =
+    students
+    |> Seq.tryFind (fun s -> s.Grade = grade)
+
+// Some ({ Name = Jones, B; Grade = 'B' })
+[ { Name = "Garcia, A"; Grade = 'A'}
+  { Name = "Jones, B"; Grade = 'B' }
+  { Name = "Ng, S"; Grade = 'A' } ]
+|> tryFindFirstWithGrade 'B'  
+
+#!markdown
+
+Listing 5-8. *Process All Items, imperative version, in looping style*
+
+#!fsharp
+
+type Student = { Name : string; Grade : char }
+
+let printGradeLabel (student : Student) =
+    printfn "%s\nGrade: %c\n" (student.Name.ToUpper()) student.Grade
+
+let printGradeLabels (students : seq<Student>) =
+    for student in students do
+        printGradeLabel student
+
+// GARCIA, A\nGrade: A\n...
+[ { Name = "Garcia, A"; Grade = 'A'}
+  { Name = "Jones, B"; Grade = 'B' }
+  { Name = "Ng, S"; Grade = 'A' } ]
+|> printGradeLabels        
+
+#!markdown
+
+Listing 5-9. *Process All Items, imperative version, in loop-free style*
+
+#!fsharp
+
+type Student = { Name : string; Grade : char }
+
+let printGradeLabel (student : Student) =
+    printfn "%s\nGrade: %c\n" (student.Name.ToUpper()) student.Grade
+
+let printGradeLabels (students : seq<Student>) =
+    students
+    |> Seq.iter (fun student -> printGradeLabel student)
+    // Alternatively:
+    //|> Seq.iter printGradeLabel
+
+// GARCIA, A\nGrade: A\n...
+[ { Name = "Garcia, A"; Grade = 'A'}
+  { Name = "Jones, B"; Grade = 'B' }
+  { Name = "Ng, S"; Grade = 'A' } ]
+|> printGradeLabels        
+
+#!markdown
+
+Listing 5-10. *Process All Items, returning a result for each, in mutable style*
+
+#!fsharp
+
+type Student = { Name : string; Grade : char }
+
+let makeGradeLabel (student : Student) =
+    sprintf "%s\nGrade: %c\n" (student.Name.ToUpper()) student.Grade
+
+let makeGradeLabels (students : seq<Student>) =
+    let result = ResizeArray<string>()
+    for student in students do
+        result.Add(makeGradeLabel student)
+    result |> Seq.cast<string>
+
+// [ GARCIA, A\nGrade: A\n...
+[ { Name = "Garcia, A"; Grade = 'A'}
+  { Name = "Jones, B"; Grade = 'B' }
+  { Name = "Ng, S"; Grade = 'A' } ]
+|> makeGradeLabels
+
+#!markdown
+
+Listing 5-11. *Process All Items in mutable style, another approach*
+
+#!fsharp
+
+type Student = { Name : string; Grade : char }
+
+let makeGradeLabel (student : Student) =
+    sprintf "%s\nGrade: %c\n" (student.Name.ToUpper()) student.Grade
+
+let makeGradeLabels (students : seq<Student>) =
+    let length = students |> Seq.length
+    let result = Array.zeroCreate<string> length
+    let mutable i = 0
+    for student in students do
+        result.[i] <- makeGradeLabel student
+        i <- i + 1
+    result |> Seq.ofArray
+
+// [ GARCIA, A\nGrade: A\n...
+[ { Name = "Garcia, A"; Grade = 'A'}
+  { Name = "Jones, B"; Grade = 'B' }
+  { Name = "Ng, S"; Grade = 'A' } ]
+|> makeGradeLabels 
+
+#!markdown
+
+Listing 5-12. *Process All Items, returning a result for each, in immutable style*
+
+#!fsharp
+
+type Student = { Name : string; Grade : char }
+
+let makeGradeLabel (student : Student) =
+    sprintf "%s\nGrade: %c\n" (student.Name.ToUpper()) student.Grade
+
+let makeGradeLabels (students : seq<Student>) =
+    students
+    |> Seq.map makeGradeLabel
+
+// [ GARCIA, A\nGrade: A\n...
+[ { Name = "Garcia, A"; Grade = 'A'}
+  { Name = "Jones, B"; Grade = 'B' }
+  { Name = "Ng, S"; Grade = 'A' } ]
+|> makeGradeLabels
+
+#!markdown
+
+Listing 5-13. *Repeat Until in mutable style*
+
+#!fsharp
+
+// Simulate something coming from an API which only
+// tells you if you are going to get something after
+// you asked for it.
+let tryGetSomethingFromApi =
+    let mutable thingCount = 0
+    let maxThings = 10
+    fun () ->
+        if thingCount < maxThings then
+            thingCount <- thingCount+1
+            "Soup"
+        else
+            null // No more soup for you!
+
+let listThingsFromApi() =
+    let mutable finished = false
+    while not finished do
+        let thing = tryGetSomethingFromApi()
+        if thing <> null then
+            printfn "I got %s" thing
+        else
+            printfn "No more soup for me!"
+            finished <- true
+
+// I got Soup (x10)
+// No more soup for me!
+listThingsFromApi()
+
+#!markdown
+
+Listing 5-14. *Repeat Until in immutable style using a recursive sequence expression*
+
+#!fsharp
+
+// Simulate something coming from an API which only
+// tells you if you are going to get something after
+// you asked for it.
+let tryGetSomethingFromApi =
+    let mutable thingCount = 0
+    let maxThings = 10
+    fun () ->
+        if thingCount < maxThings then
+            thingCount <- thingCount+1
+            "Soup"
+        else
+            null // No more soup for you!
+
+let rec apiToSeq() =
+    seq {
+        match tryGetSomethingFromApi() |> Option.ofObj with
+        | Some thing ->
+            yield thing
+            yield! apiToSeq()
+        | None ->
+            ()
+    }
+
+let listThingsFromApi() =
+    apiToSeq()
+    |> Seq.iter (printfn "I got %s")
+
+// I got Soup (x10)
+listThingsFromApi()
+
+#!markdown
+
+Listing 5-15. *Naïve get-maximum function in mutable style*
+
+#!fsharp
+
+open System
+
+let getMax (numbers : seq<float>) =
+    let mutable max = Double.MinValue
+    for number in numbers do
+        if number > max then
+            max <- number
+    max
+
+// 9.8
+let ex1 = [1.3; 9.8; 4.5; -13.0] |> getMax
+
+// -1.7976931348623157E+308
+let ex2 = [] |> getMax
+
+ex1, ex2
+
+#!markdown
+
+Listing 5-16. *Implementing Seq.tryMax and Seq.tryMaxBy*
+
+#!fsharp
+
+module Seq =
+
+    let tryMax s =
+        if s |> Seq.isEmpty then
+            None
+        else
+            s |> Seq.max |> Some
+
+    let tryMaxBy f s =
+        if s |> Seq.isEmpty then
+            None
+        else
+            s |> Seq.maxBy f |> Some
+
+#!markdown
+
+Listing 5-17. *Using Seq.tryMaxBy*
+
+#!fsharp
+
+type Student = { Name : string; Grade : char }
+
+let tryGetLastStudentByName (students : seq<Student>) =
+    students
+    |> Seq.tryMaxBy (fun s -> s.Name)
+
+// { Name = "Ng, S" Grade = 'A' }
+[ { Name = "Garcia, A"; Grade = 'A'}
+  { Name = "Ng, S"; Grade = 'A' } 
+  { Name = "Jones, B"; Grade = 'B' } ]
+|> tryGetLastStudentByName
+
+#!markdown
+
+Listing 5-18. *Using Seq.tryMaxBy to find furthest from zero*
+
+#!fsharp
+
+// Some(-5.3)
+let furthestFromZero =
+    [| -1.1; -0.1; 0.; 1.1; -5.3 |]
+    |> Seq.tryMaxBy abs
+
+furthestFromZero
+
+#!markdown
+
+Listing 5-19. *Calculating RMS in mutable style*
+
+#!fsharp
+
+let rms (s : seq<float>) =
+    let mutable total = 0.
+    let mutable count = 0
+    for item in s do
+        total <- total + (item ** 2.)
+        count <- count + 1
+    let average = total / (float count)
+    sqrt average
+
+// 120.2081528
+[|0.; -170.; 0.; 170.|] |> rms
+
+#!markdown
+
+Listing 5-20. *Calculating RMS in immutable style*
+
+#!fsharp
+
+let rms (s : seq<float>) =
+    s
+    |> Seq.averageBy (fun item -> item ** 2.)
+    |> sqrt
+
+// 120.2081528
+[|0.; -170.; 0.; 170.|] |> rms
+
+#!markdown
+
+Listing 5-21. *Cumulative computation in mutable style*
+
+#!fsharp
+
+let product (s : seq<float>) =
+    let mutable total = 1.
+    for item in s do
+        total <- total * item
+    total
+
+// 1.98
+[| 1.2; 1.1; 1.5|] |> product
+
+#!markdown
+
+Listing 5-22. *Cumulative computation in immutable style*
+
+#!fsharp
+
+let product (s : seq<float>) =
+    s
+    |> Seq.fold (fun acc elem -> acc * elem) 1.
+    
+// 1.98
+[| 1.2; 1.1; 1.5|] |> product
+
+#!markdown
+
+## Exercises
+
+#!markdown
+
+Exercise 5-1. *Clipping a sequence*
+
+#!fsharp
+
+// Write a function “clip,” which takes a sequence of values, and returns a sequence of the same length, in which the 
+// values are the same as the inputs, except elements that were higher than a defined ceiling are replaced with that ceiling.
+
+// You can solve this exercise using one collection function and one other function.
+
+open System
+
+let clip ceiling (s : seq<_>) =
+    // TODO
+    ()
+
+// seq [1.0; 2.3; 10.0; -5.0]
+[| 1.0; 2.3; 11.1; -5. |]
+|> clip 10.
+
+#!markdown
+
+Exercise 5-2. *Minimum and maximum*
+
+#!fsharp
+
+// You come across a function that appears to be designed to calculate the minimum and maximum values in a sequence:
+open System
+
+let extremes (s : seq<float>) =
+    let mutable min = Double.MaxValue
+    let mutable max = Double.MinValue
+    for item in s do
+        if item < min then
+            min <- item
+        if item > max then
+            max <- item
+    min, max
+
+// (-5.0, 11.1)
+[| 1.0; 2.3; 11.1; -5. |]
+|> extremes
+
+// How would you rewrite the function to avoid using mutable values? You can ignore the situation where the input sequence is empty.
+// Given a pre-computed array of one million elements, how does the performance of your function compare with the mutable version?
+
+// You can solve this exercise using two collection functions.
+
+#!markdown
+
+## Exercise Solutions
+
+#!markdown
+
+Exercise 5-1. *Clipping a sequence* (Solution)
+
+#!fsharp
+
+open System
+
+let clip ceiling (s : seq<_>) =
+    s
+    |> Seq.map (fun x -> min x ceiling)
+
+// seq [1.0; 2.3; 10.0; -5.0]
+[| 1.0; 2.3; 11.1; -5. |]
+|> clip 10.
+
+#!markdown
+
+Exercise 5-2. *Minimum and maximum* (Solution)
+
+#!fsharp
+
+let extremesImmutable (s : seq<float>) =
+    s |> Seq.max,
+    s |> Seq.min
+
+// (11, -5)
+[| 1.0; 2.3; 11.1; -5. |]
+|> extremesImmutable
+
+// Performance test:
+open System
+open System.Diagnostics
+
+let r = Random()
+let big = Array.init 1_000_000 (fun _ -> r.NextDouble())
+let sw = Stopwatch()
+
+// Test the mutable version:
+sw.Start()
+let min1, max1 = big |> extremes
+// min: 0.999998 max: 0.000002 - time: 12ms
+printfn "min: %f max: %f - time: %ims" min1 max1 sw.ElapsedMilliseconds
+sw.Stop()
+
+// Test the immutable version:
+sw.Restart()
+let min2, max2 = big |> extremesImmutable
+// min: 0.999998 max: 0.000002 - time: 19ms
+printfn "min: %f max: %f - time: %ims" min2 max2 sw.ElapsedMilliseconds
+sw.Stop()
+
+// Some variations - generic sequence:
+let extremesImmutableGeneric (s : seq<_>) =
+    s |> Seq.max,
+    s |> Seq.min
+
+// Test the immutable, generic sequence version:
+sw.Restart()
+let min3, max3 = big |> extremesImmutableGeneric
+// min: 0.999998 max: 0.000002 - time: 173ms
+printfn "min: %f max: %f - time: %ims" min3 max3 sw.ElapsedMilliseconds
+sw.Stop()
+
+// Generic sequence, inline function
+let inline extremesImmutableGenericInline (s : seq<_>) =
+    s |> Seq.max,
+    s |> Seq.min
+
+// Test the immutable, generic sequence version:
+sw.Restart()
+let min4, max4 = big |> extremesImmutableGenericInline
+// min: 0.999998 max: 0.000002 - time: 22ms
+printfn "min: %f max: %f - time: %ims" min4 max4 sw.ElapsedMilliseconds
+sw.Stop()

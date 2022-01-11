@@ -1,0 +1,162 @@
+#!markdown
+
+# Sample code for Chapter 10 of "Stylish F# 6" by Kit Eason
+
+#!markdown
+
+Most of the code for this chapter is in a directory called "Chapter10". This notebook contains only exercises.
+
+#!markdown
+
+## Exercises
+
+#!markdown
+
+Exercise 10-1. *Making some code asynchronous*
+
+#!fsharp
+
+open System
+
+module Random =
+
+    let private random = System.Random()
+    let string() =
+        let len = random.Next(0, 10)
+        Array.init len (fun _ -> random.Next(0, 255) |> char)
+        |> String
+
+module Server =
+
+    let AsyncGetString (id : int) =
+        // id is unused
+        async {
+            do! Async.Sleep(500)
+            return Random.string()
+        }
+
+module Consumer =
+
+    let GetData (count : int) =
+        let strings =
+            Array.init count (fun i ->
+                Server.AsyncGetString i |> Async.RunSynchronously)
+        strings
+        |> Array.sort
+        
+let sw = System.Diagnostics.Stopwatch()
+sw.Start()
+Consumer.GetData 10 |> ignore
+printfn "That took %ims" sw.ElapsedMilliseconds
+
+#!markdown
+
+## Exercise Solutions
+
+#!markdown
+
+Exercise 10-1. *Making some code asynchronous* (Solution)
+
+#!fsharp
+
+open System
+
+module Random =
+
+    let private random = System.Random()
+    let string() =
+        let len = random.Next(0, 10)
+        Array.init len (fun _ -> random.Next(0, 255) |> char)
+        |> String
+
+module Server =
+
+    let AsyncGetString (id : int) =
+        // id is unused
+        async {
+            do! Async.Sleep(500)
+            return Random.string()
+        }
+
+module Consumer =
+
+    let AsyncGetData (count : int) =
+        async {
+            let! strings =
+                Array.init count (fun i -> Server.AsyncGetString i)
+                |> Async.Parallel
+            return
+                strings
+                |> Array.sort
+        }
+        
+let sw = System.Diagnostics.Stopwatch()
+sw.Start()
+Consumer.AsyncGetData 10 |> Async.RunSynchronously |> ignore
+printfn "That took %ims" sw.ElapsedMilliseconds
+
+#!markdown
+
+Exercise 10-2. *Returning tasks* (Solution)
+
+#!fsharp
+
+open System
+
+// Remove these two lines if your .NET Interactive is configured to use .NET 6 or later.
+#r "nuget: TaskBuilder.fs"
+open FSharp.Control.Tasks.V2
+
+module Random =
+
+    let private random = System.Random()
+    let string() =
+        let len = random.Next(0, 10)
+        Array.init len (fun _ -> random.Next(0, 255) |> char)
+        |> String
+
+module Server =
+
+    let AsyncGetString (id : int) =
+        // id is unused
+        async {
+            do! Async.Sleep(500)
+            return Random.string()
+        }
+
+module Consumer =
+
+    let GetDataAsync1 (count : int) =
+        async {
+            let! strings =
+                Array.init count (fun i -> Server.AsyncGetString i)
+                |> Async.Parallel
+            return
+                strings
+                |> Array.sort
+        } |> Async.StartAsTask
+
+    let GetDataAsync2 (count : int) =
+        task {
+            let! strings =
+                Array.init count (fun i -> Server.AsyncGetString i)
+                |> Async.Parallel
+            return
+                strings
+                |> Array.sort
+        }
+        
+let sw = System.Diagnostics.Stopwatch()
+sw.Start()
+Consumer.GetDataAsync1 10 
+|> Async.AwaitTask 
+|> Async.RunSynchronously 
+|> ignore
+printfn "GetDataAsync1 took %ims" sw.ElapsedMilliseconds
+
+sw.Restart()
+Consumer.GetDataAsync2 10 
+|> Async.AwaitTask 
+|> Async.RunSynchronously 
+|> ignore
+printfn "GetDataAsync2 took %ims" sw.ElapsedMilliseconds

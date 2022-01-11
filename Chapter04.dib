@@ -1,0 +1,844 @@
+#!markdown
+
+# Sample code for Chapter 4 of "Stylish F# 6" by Kit Eason
+
+#!markdown
+
+Listing 4-1. *Filtering example*
+
+#!fsharp
+
+type House = { Address : string; Price : decimal }
+
+let houses =
+    [|
+        { Address = "1 Acacia Avenue"; Price = 250_000m }
+        { Address = "2 Bradley Street"; Price = 380_000m }
+        { Address = "1 Carlton Road"; Price = 98_000m }
+    |]
+
+let cheapHouses =
+    houses |> Array.filter (fun h -> h.Price < 100_000m)
+
+// [|{Address = "1 Carlton Road"; Price = 98000M;}|]
+printfn "%A" cheapHouses
+
+#!markdown
+
+Listing 4-2. *Setup code for following listings and exercises*
+
+#!fsharp
+
+type House = { Address : string; Price : decimal }
+
+module House =
+
+    let private random = System.Random(Seed = 1)
+    
+    /// Make an array of 'count' random houses.
+    let getRandom count =
+        Array.init count (fun i ->
+            { Address = sprintf "%i Stochastic Street" (i+1)
+              Price = random.Next(50_000, 500_000) |> decimal })
+
+module Distance = 
+
+    let private random = System.Random(Seed = 1)
+    
+    /// Try to get the distance to the nearest school.
+    /// (Results are simulated)
+    let tryToSchool (house : House) =
+        // Because we simulate results, the house
+        // parameter isn’t actually used.
+        let dist = random.Next(10) |> double
+        if dist < 5. then
+            Some dist
+        else
+            None
+
+type PriceBand = | Cheap | Medium | Expensive
+
+module PriceBand =             
+            
+    // Return a price band based on price.
+    let fromPrice (price : decimal) =
+        if price < 100_000m then
+            Cheap
+        elif price < 200_000m then
+            Medium
+        else
+            Expensive
+
+#!markdown
+
+Listings 4-3 to 4-7. *Solving Exercise 4-1*
+
+#!fsharp
+
+let housePrices =
+    House.getRandom 20
+    |> Array.map (fun h ->
+        sprintf "Address: %s - Price: %f" h.Address h.Price)
+
+housePrices
+
+#!markdown
+
+Listings 4-8 to 4-9. *Solving Exercise 4-5*
+
+#!fsharp
+
+House.getRandom 20
+|> Array.filter (fun h -> h.Price > 100_000m)
+|> Array.iter (fun h ->
+    printfn "Address: %s Price: %f" h.Address h.Price)
+
+#!markdown
+
+Listing 4-10. *A function to compute an array average, or zero when the array is empty*
+
+#!fsharp
+
+module Array =
+
+    let averageValue (values : decimal[]) =
+        if values.Length = 0 then
+            0.m
+        else
+            values |> Array.average
+
+// 370.m
+let ex1 = [|10.m; 100.m; 1000.m|] |> Array.averageValue
+
+// 0.m
+let ex2 = [||] |> Array.averageValue
+
+ex1, ex2
+
+#!markdown
+
+Listing 4-11. *A generic function to compute an array average, or zero when the array is empty*
+
+#!fsharp
+
+module Array =
+
+    let inline averageOrZero (values : 'T[]) =
+        if values.Length = 0 then
+            LanguagePrimitives.GenericZero<'T>
+        else
+            values |> Array.average
+
+// 370.m
+let ex3 = [|10.m; 100.m; 1000.m|] |> Array.averageOrZero
+
+// 370.f
+let ex3f = [|10.f; 100.f; 1000.f|] |> Array.averageOrZero
+
+// 0.m
+let ex4 : decimal = [||] |> Array.averageOrZero
+
+// 0.f
+let ex4f : float = [||] |> Array.averageOrZero
+
+ex3, ex3f, ex4, ex4f
+
+#!markdown
+
+Listing 4-12. *A function to compute an array average, or a default when the array is empty*
+
+#!fsharp
+
+module Array =
+
+    let inline averageOr (defaultValue : 'T) (values : 'T[]) =
+        if values.Length = 0 then
+            defaultValue
+        else
+            values |> Array.average
+
+// 370.m
+let ex5 = [|10.m; 100.m; 1000.m|] |> Array.averageOr 0.m
+
+// 370.f
+let ex5f = [|10.f; 100.f; 1000.f|] |> Array.averageOr 0.f
+
+// 0.m
+let ex6 = [||] |> Array.averageOr 0.m
+
+// 0.f
+let ex6f = [||] |> Array.averageOr 0.f
+
+ex5, ex5f, ex6, ex6f
+
+#!markdown
+
+Listing 4-13. *Defining an idiomatic `tryAverage` function*
+
+#!fsharp
+
+module Array =
+
+    let inline tryAverage (values : 'T[]) =
+        if values.Length = 0 then
+            None
+        else
+            values |> Array.average |> Some
+
+#!markdown
+
+Listing 4-14. *Consuming option type results using match expressions*
+
+#!fsharp
+
+// "The average was 370.000000"
+match [|10.m; 100.m; 1000.m|] |> Array.tryAverage with
+| Some av -> printfn "The average was %f" av
+| None -> printfn "There was no average."
+
+// "There was no average."
+match [||] |> Array.tryAverage with
+| Some av -> printfn "The average was %f" av
+| None -> printfn "There was no average."
+
+#!markdown
+
+Listing 4-15. *Using `Set.map`*
+
+#!fsharp
+
+let novelWords = Set ["The";"the";"quick";"brown";"Fox";"fox"]
+
+// set ["brown"; "fox"; "quick"; "the"]
+let lowerWords =
+    novelWords
+    |> Set.map (fun w -> w.ToLowerInvariant())
+
+lowerWords
+
+#!markdown
+
+Listing 4-16. *Using `Array.partition` on a sequence*
+
+#!fsharp
+
+type House = { Address : string; Price : decimal }
+
+module House = 
+
+    /// Make a sequence of 'count' random houses.
+    let getRandomSeq count =
+        let random = System.Random(Seed = 1)
+        Seq.init count (fun i ->
+            { Address = sprintf "%i Stochastic Street" (i+1)
+              Price = random.Next(50_000, 500_000) |> decimal })
+
+// Convert a sequence of houses into an array, so that we
+// can use Array.partition to divide them into affordable and
+// unaffordable. (There is no Seq.partition.)
+let affordable, unaffordable =
+    House.getRandomSeq 20
+    |> Array.ofSeq
+    |> Array.partition (fun h -> h.Price < 150_000m)
+
+affordable, unaffordable
+
+#!markdown
+
+Listing 4-17. *Using the `choose` function*
+
+#!fsharp
+
+module Array =
+
+    let inline tryAverage (a : 'T[]) =
+        if a.Length = 0 then
+            None
+        else
+            a |> Array.average |> Some
+
+// Calculate the average known distance to school
+// in a sample of 20 houses.
+let averageDistanceToSchool =
+    House.getRandom 20
+    |> Array.map Distance.tryToSchool
+    |> Array.filter (fun d -> d.IsSome)
+    |> Array.map (fun d -> d.Value)
+    |> Array.tryAverage
+
+// As previous function, but use Array.choose instead
+// of map, filter and map.
+let averageDistanceToSchool2 =
+    House.getRandom 20
+    |> Array.choose Distance.tryToSchool
+    |> Array.tryAverage
+
+averageDistanceToSchool, averageDistanceToSchool2
+
+#!markdown
+
+Listing 4-18. *Avoiding long lambda functions*
+
+#!fsharp
+
+// Get houses with their price bands the long-winded way:
+let housesWithBands =
+    House.getRandom 20
+    |> Array.map (fun h ->
+        let band =
+            if h.Price < 100_000m then
+                Cheap
+            elif h.Price < 200_000m then
+                Medium
+            else
+                Expensive
+        h, band)
+
+// Most of the code above could be pulled into a fromPrice function:
+// (Here we use the one that is already defined in the PriceBand module 
+// in a previous listing.)
+let housesWithBands2 =
+    House.getRandom 20
+    |> Array.map (fun h ->
+        h, h.Price |> PriceBand.fromPrice)
+
+housesWithBands, housesWithBands2
+
+#!markdown
+
+Listing 4-19. *Replacing tuples with anonymous records*
+
+#!fsharp
+
+module PriceBand = 
+
+    let order = function
+    | Cheap -> 0 | Medium -> 1 | Expensive -> 2
+
+// A report of price bands and the houses that fall into them:
+House.getRandom 20
+|> Seq.groupBy (fun h -> h.Price |> PriceBand.fromPrice)
+|> Seq.sortBy (fun (band, _) -> band |> PriceBand.order)
+|> Seq.iter (fun (band, houses) ->
+    printfn "---- %A ----" band
+    houses
+    |> Seq.iter (fun h -> printfn "%s - %f" h.Address h.Price))
+
+#!fsharp
+
+// Like the previous report, but using an anoymous record to
+// reduce use of tuples:
+House.getRandom 20
+|> Seq.groupBy (fun h -> h.Price |> PriceBand.fromPrice)
+|> Seq.map (fun (band, houses) ->
+    {| PriceBand = band; Houses = houses |})
+|> Seq.sortBy (fun group -> group.PriceBand |> PriceBand.order)
+|> Seq.iter (fun group ->
+    printfn "---- %A ----" group.PriceBand
+    group.Houses
+    |> Seq.iter (fun h -> printfn "%s - %f" h.Address h.Price))
+
+#!markdown
+
+## Exercises
+
+#!markdown
+
+Repetition of Listing 4-2. *Setup code for exercises.*
+
+#!fsharp
+
+type House = { Address : string; Price : decimal }
+
+module House =
+
+    let private random = System.Random(Seed = 1)
+    
+    /// Make an array of 'count' random houses.
+    let getRandom count =
+        Array.init count (fun i ->
+            { Address = sprintf "%i Stochastic Street" (i+1)
+              Price = random.Next(50_000, 500_000) |> decimal })
+
+module Distance = 
+
+    let private random = System.Random(Seed = 1)
+    
+    /// Try to get the distance to the nearest school.
+    /// (Results are simulated)
+    let tryToSchool (house : House) =
+        // Because we simulate results, the house
+        // parameter isn’t actually used.
+        let dist = random.Next(10) |> double
+        if dist < 5. then
+            Some dist
+        else
+            None
+
+type PriceBand = | Cheap | Medium | Expensive
+
+module PriceBand =             
+            
+    // Return a price band based on price.
+    let fromPrice (price : decimal) =
+        if price < 100_000m then
+            Cheap
+        elif price < 200_000m then
+            Medium
+        else
+            Expensive
+
+#!markdown
+
+Exercise 4-1. *Transforming data items*
+
+#!fsharp
+
+// Take a sample of 20 houses and for each house produce a string in the form:
+// Address: 1 Stochastic Street - Price: 123456.00000
+
+// The number of decimal places displayed for the price doesn’t matter.
+
+// TODO
+
+#!markdown
+
+Exercise 4-2. *Calculating an average*
+
+#!fsharp
+
+// Take a sample of 20 houses and calculate the average of their prices.
+
+// You can assume the list isn’t empty (you know it has 20 houses!).
+
+// TODO
+
+#!markdown
+
+Exercise 4-3. *Selecting based on a condition*
+
+#!fsharp
+
+// Take a sample of 20 houses and get all the houses that cost over $250,000.
+
+// TODO
+
+#!markdown
+
+Exercise 4-4. *Attempting a calculation and choosing successes*
+
+#!fsharp
+
+// Take a sample of 20 houses and return an array of tuples, each tuple containing a house and the distance to the nearest school.
+// Use the Distance.tryToSchool function to calculate the distance. Exclude houses for which this function returns None.
+
+// Sample output:
+// val housesNearSchools : (Houses.House * double) [] =
+//     [|({Address = "1 Stochastic Street";
+//         Price = 161900M;}, 2.0); ({Address = "3 Stochastic Street";
+//                                    Price = 99834M;}, 2.0); ...
+
+// Clue: Although you can achieve this in a single collection function, the lambda it uses will need to do some pattern matching
+// on the Some/None cases coming back from trySchoolDistance.
+
+// TODO
+
+#!markdown
+
+Exercise 4-5. *Filtering and iterating*
+
+#!fsharp
+
+// Take a sample of 20 houses, find the ones that cost over $100,000, and iterate over the results printing (not returning)
+// their addresses and prices. The exact format doesn’t matter, as long as the address and price are printed in some form.
+
+// You should be able to complete this exercise using two collection functions.
+
+// TODO
+
+#!markdown
+
+Exercise 4-6. *Ordering*
+
+#!fsharp
+
+// Extend the previous exercise, this time ensuring that the houses are printed in descending order of price.
+
+// You should be able to complete this exercise using three collection functions.
+
+// TODO
+
+#!markdown
+
+Exercise 4-7. *Filtering and averaging*
+
+#!fsharp
+
+// Take a sample of 20 houses and find the average price of all the houses that cost over $200,000.
+
+// You can assume for this exercise that there will be at least one house that fulfills the criterion.
+// You should be able to complete this exercise using two collection functions.
+
+// TODO
+
+#!markdown
+
+Exercise 4-8. *Finding a single element*
+
+#!fsharp
+
+// Take a sample of 20 houses and find the first house that costs less than $100,000 and for which we can calculate
+// the distance to a school. The results should include the house instance and the calculated distance to school.
+
+// You can assume for this exercise that there will be at least one house that fulfills the criteria.
+
+// You should be able to complete this exercise using two collection functions.
+
+// Clue: You can reuse some of the solution code from Exercise 4-4 to help complete this exercise.
+
+// TODO
+
+#!markdown
+
+Exercise 4-9. *Grouping*
+
+#!fsharp
+
+// Take a sample of 20 houses, and create an array of tuples, where the first element of each tuple is a price band
+// (created using the provided PriceBand.fromPrice function), and the second is a sequence of all the houses that fall
+// into the band.
+
+// It’s OK if a band is omitted when there are no houses in that band. Within a grouping, the houses should be in
+// ascending order of price.
+
+// Example output:
+//   val housesByBand : (Houses.PriceBand * Houses.House []) [] =
+//     [|(Medium,
+//        [|{Address = "12 Stochastic Street";
+//           Price = 161613M;};
+//      ...
+//          {Address = "13 Stochastic Street";
+//           Price = 194049M;}|]);
+//       (Cheap,
+//        [|{Address = "11 Stochastic Street";
+//           Price = 62886M;};
+//       ...
+//          {Address = "2 Stochastic Street";
+//           Price = 99834M;}|]);
+//       (Expensive,
+//        [|{Address = "7 Stochastic Street";
+//           Price = 209337M;};
+//       ...
+//          {Address = "14 Stochastic Street";
+//           Price = 495395M;}|])|]
+
+// You should be able to complete this exercise using three collection functions.
+
+// TODO
+
+#!markdown
+
+Exercise 4-10. *Filtering, averaging and try*
+
+#!fsharp
+
+// Take a sample of 20 houses and find the average price of all the houses that cost over $200,000.
+
+// You’ll need to make sure you handle the case where no houses in the sample cost over $200,000.
+// (You will need to change the price criterion a little to test this.)
+
+// You should be able to complete this exercise using two collection functions, but you may need to 
+// define one of these functions yourself.
+
+// TODO
+
+#!markdown
+
+Exercise 4-11. *Finding a single element if any*
+
+#!fsharp
+
+// Take a sample of 20 houses and find the first house that costs less than $100,000 and for which we
+// can calculate the distance to a school. The results should include the house instance and the calculated
+// distance to school.
+
+// You’ll need to make sure you handle the case where no houses meet the criteria.
+// (You will need to change the price criterion a little to test this.)
+
+// You should be able to complete this exercise using two collection functions.
+
+// Clue: You can reuse some of the solution code from previous exercises to help complete this exercise.
+
+// TODO
+
+#!markdown
+
+## Exercise Solutions
+
+#!markdown
+
+Exercise 4-1. *Transforming data items* (Solution) *(Incorporates Listings 4-3 through 4-7)*
+
+#!fsharp
+
+// Take a sample of 20 houses and for each house produce a string in the form:
+// Address: 1 Stochastic Street - Price: 123456.00000
+
+// The number of decimal places displayed for the price doesn’t matter.
+
+let housePrices =
+    House.getRandom 20
+    |> Array.map (fun h ->
+        sprintf "Address: %s - Price: %f" h.Address h.Price)
+
+housePrices
+|> Array.iter (printfn "%O")
+
+// Alternative using string interpolation:
+let housePrices2 =
+    House.getRandom 20
+    |> Array.map (fun h ->
+        sprintf $"Address: {h.Address} - Price: {h.Price}")
+
+#!markdown
+
+Exercise 4-2. *Calculating an average* (Solution) 
+
+#!fsharp
+
+// Take a sample of 20 houses and calculate the average of their prices.
+
+// You can assume the list isn’t empty (you know it has 20 houses!).
+
+let averagePrice =
+    House.getRandom 20
+    |> Array.averageBy (fun h -> h.Price)
+
+averagePrice    
+
+#!markdown
+
+Exercise 4-3. *Selecting based on a condition* (Solution) 
+
+#!fsharp
+
+// Take a sample of 20 houses and get all the houses that cost over $250,000.
+
+let expensive =
+    House.getRandom 20
+    |> Array.filter (fun h -> h.Price > 250_000m)
+
+expensive
+
+#!markdown
+
+Exercise 4-4. *Attempting a calculation and choosing successes* (Solution) 
+
+#!fsharp
+
+// Take a sample of 20 houses and return an array of tuples, each tuple containing a house and the distance to the nearest school.
+// Use the Distance.tryToSchool function to calculate the distance. Exclude houses for which this function returns None.
+
+// Sample output:
+// val housesNearSchools : (Houses.House * double) [] =
+//     [|({Address = "1 Stochastic Street";
+//         Price = 161900M;}, 2.0); ({Address = "3 Stochastic Street";
+//                                    Price = 99834M;}, 2.0); ...
+
+// Clue: Although you can achieve this in a single collection function, the lambda it uses will need to do some pattern matching
+// on the Some/None cases coming back from Distance.tryToSchool.
+
+let housesNearSchools =
+    House.getRandom 20
+    |> Array.choose (fun h ->
+        // See also the "Missing Data" chapter
+        match h |> Distance.tryToSchool with
+        | Some d -> Some(h, d)
+        | None -> None)
+
+housesNearSchools
+
+#!markdown
+
+Exercise 4-5. *Filtering and iterating* (Solution) *(Incorporates Listings 4-8 through 4-9)*
+
+#!fsharp
+
+// Take a sample of 20 houses, find the ones that cost over $100,000, and iterate over the results printing (not returning)
+// their addresses and prices. The exact format doesn’t matter, as long as the address and price are printed in some form.
+
+// You should be able to complete this exercise using two collection functions.
+
+House.getRandom 20
+|> Array.filter (fun h -> h.Price > 100_000m)
+|> Array.iter (fun h ->
+    printfn "Address: %s Price: %f" h.Address h.Price)
+
+#!markdown
+
+Exercise 4-6. *Ordering* (Solution) 
+
+#!fsharp
+
+// Extend the previous exercise, this time ensuring that the houses are printed in descending order of price.
+
+// You should be able to complete this exercise using three collection functions.
+
+House.getRandom 20
+|> Array.filter (fun h -> h.Price > 100_000m)
+|> Array.sortByDescending (fun h -> h.Price)
+|> Array.iter (fun h ->
+    printfn "Address: %s Price: %f" h.Address h.Price)
+
+#!markdown
+
+Exercise 4-7. *Filtering and averaging* (Solution) 
+
+#!fsharp
+
+// Take a sample of 20 houses and find the average price of all the houses that cost over $200,000.
+
+// You can assume for this exercise that there will be at least one house that fulfills the criterion.
+// You should be able to complete this exercise using two collection functions.
+
+let averageOver200K =
+    House.getRandom 20
+    |> Array.filter (fun h -> h.Price > 200_000m)
+    |> Array.averageBy (fun h -> h.Price)
+
+averageOver200K
+
+#!markdown
+
+Exercise 4-8. *Finding a single element* (Solution) 
+
+#!fsharp
+
+// Take a sample of 20 houses and find the first house that costs less than $100,000 and for which we can calculate
+// the distance to a school. The results should include the house instance and the calculated distance to school.
+
+// You can assume for this exercise that there will be at least one house that fulfills the criteria.
+
+// You should be able to complete this exercise using two collection functions.
+
+// Clue: You can reuse some of the solution code from Exercise 4-4 to help complete this exercise.
+
+let cheapHouseWithKnownSchoolDistance =
+    House.getRandom 20
+    |> Array.filter (fun h -> h.Price < 100_000m)
+    |> Array.pick (fun h ->
+        match h |> Distance.tryToSchool with
+        | Some d -> Some(h, d)
+        | None -> None)
+
+cheapHouseWithKnownSchoolDistance
+
+#!markdown
+
+Exercise 4-9. *Grouping* (Solution) 
+
+#!fsharp
+
+// Take a sample of 20 houses, and create an array of tuples, where the first element of each tuple is a price band
+// (created using the provided PriceBand.fromPrice function), and the second is a sequence of all the houses that fall
+// into the band.
+
+// It’s OK if a band is omitted when there are no houses in that band. Within a grouping, the houses should be in
+// ascending order of price.
+
+// Example output:
+//   val housesByBand : (Houses.PriceBand * Houses.House []) [] =
+//     [|(Medium,
+//        [|{Address = "12 Stochastic Street";
+//           Price = 161613M;};
+//      ...
+//          {Address = "13 Stochastic Street";
+//           Price = 194049M;}|]);
+//       (Cheap,
+//        [|{Address = "11 Stochastic Street";
+//           Price = 62886M;};
+//       ...
+//          {Address = "2 Stochastic Street";
+//           Price = 99834M;}|]);
+//       (Expensive,
+//        [|{Address = "7 Stochastic Street";
+//           Price = 209337M;};
+//       ...
+//          {Address = "14 Stochastic Street";
+//           Price = 495395M;}|])|]
+
+// You should be able to complete this exercise using three collection functions.
+
+let housesByBand =
+    House.getRandom 20
+    |> Array.groupBy (fun h -> h.Price |> PriceBand.fromPrice)
+    |> Array.map (fun group ->
+        let band, houses = group
+        band, houses |> Array.sortBy (fun h -> h.Price))
+
+// You can also “pattern match” in the lambda declaration of the Array.map call for a more concise solution:
+let housesByBand2 =
+    House.getRandom 20
+    |> Array.groupBy (fun h -> h.Price |> PriceBand.fromPrice)
+    |> Array.map (fun (band, houses) ->
+        band, houses |> Array.sortBy (fun h -> h.Price))
+
+housesByBand, housesByBand2
+
+#!markdown
+
+Exercise 4-10. *Filtering, averaging and try* (Solution) 
+
+#!fsharp
+
+// Take a sample of 20 houses and find the average price of all the houses that cost over $200,000.
+
+// You’ll need to make sure you handle the case where no houses in the sample cost over $200,000.
+// (You will need to change the price criterion a little to test this.)
+
+// You should be able to complete this exercise using two collection functions, but you may need to 
+// define one of these functions yourself.
+
+module Array =
+
+    let inline tryAverageBy f (a : 'T[]) =
+        if a.Length = 0 then
+            None
+        else
+            a |> Array.averageBy f |> Some
+
+let averageOver200K =
+    House.getRandom 20
+    |> Array.filter (fun h -> h.Price > 200_000m)
+    |> Array.tryAverageBy (fun h -> h.Price)
+
+averageOver200K
+
+#!markdown
+
+Exercise 4-11. *Finding a single element if any* (Solution) 
+
+#!fsharp
+
+// Take a sample of 20 houses and find the first house that costs less than $100,000 and for which we
+// can calculate the distance to a school. The results should include the house instance and the calculated
+// distance to school.
+
+// You’ll need to make sure you handle the case where no houses meet the criteria.
+// (You will need to change the price criterion a little to test this.)
+
+// You should be able to complete this exercise using two collection functions.
+
+// Clue: You can reuse some of the solution code from previous exercises to help complete this exercise.
+
+let cheapHouseWithKnownSchoolDistance =
+    House.getRandom 20
+    // Try lower price values to explore what happens
+    // when the filter returns no results.
+    |> Array.filter (fun h -> h.Price < 200_000m)
+    |> Array.tryPick (fun h ->
+        match h |> Distance.tryToSchool with
+        | Some d -> Some(h, d)
+        | None -> None)
+
+cheapHouseWithKnownSchoolDistance

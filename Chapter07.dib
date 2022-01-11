@@ -1,0 +1,918 @@
+#!markdown
+
+# Sample code for Chapter 7 of "Stylish F# 6" by Kit Eason
+
+#!markdown
+
+Listing 7-1. *Declaring a record type*
+
+#!fsharp
+
+open System
+
+type FileDescription = {
+    Path : string
+    Name : string
+    LastModified : DateTime }
+
+#!markdown
+
+Listing 7-2. *Instantiating record type instances*
+
+#!fsharp
+
+open System.IO
+
+let fileSystemInfo (rootPath : string) =
+    Directory.EnumerateFiles(rootPath, "*.*",
+                             SearchOption.AllDirectories)
+    |> Seq.map (fun path ->
+        { Path = path |> Path.GetDirectoryName
+          Name = path |> Path.GetFileName
+          LastModified = FileInfo(path).LastWriteTime })
+
+fileSystemInfo @"c:\temp"
+
+#!markdown
+
+Listing 7-3. *Accessing record type fields using dot notation*
+
+#!fsharp
+
+// Name: ad.png Path: c:\temp Last modified: 15/08/2017 22:07:34
+// Name: capture-1.avi Path: c:\temp Last modified: 27/02/2017 22:04:31
+// ...
+fileSystemInfo @"c:\temp"
+|> Seq.truncate 100
+|> Seq.iter (fun info -> // info is a FileDescription instance
+    printfn "Name: %s Path: %s Last modified: %A"
+        info.Name info.Path info.LastModified)
+
+#!markdown
+
+Listing 7-4. *Declaring a record instance as mutable*
+
+#!fsharp
+
+type MyRecord = {
+    String : string
+    Int : int }
+
+let mutable myRecord =
+    { String = "Hullo clouds"
+      Int = 99 }
+        
+// {String = "Hullo clouds";
+//  Int = 99;}
+printfn "%A" myRecord
+myRecord <-
+    { String = "Hullo sky"
+      Int = 100 }
+        
+// {String = "Hullo sky";
+//  Int = 100;}
+printfn "%A" myRecord
+
+#!markdown
+
+Listing 7-5. *Declaring record fields as mutable*
+
+#!fsharp
+
+type MyRecord = {
+    mutable String : string
+    mutable Int : int }
+
+let myRecord =
+    { String = "Hullo clouds"
+      Int = 99 }
+        
+// { String = "Hullo clouds";
+//   Int = 99;}
+printfn "%A" myRecord
+
+myRecord.String <- "Hullo sky"
+// { String = "Hullo sky";
+//   Int = 99;}
+printfn "%A" myRecord
+
+#!markdown
+
+Listing 7-6. *“Amending” a record using copy and update*
+
+#!fsharp
+
+type MyRecord = {
+    String : string
+    Int : int }
+    
+let myRecord =
+    { String = "Hullo clouds"
+      Int = 99 }
+
+// {String = "Hullo clouds";
+//  Int = 99;}
+printfn "%A" myRecord
+
+let myRecord2 =
+    { myRecord with String = "Hullo sky" }
+// { String = "Hullo sky";
+//   Int = 99;}
+printfn "%A" myRecord2
+
+#!markdown
+
+Listing 7-7. *F# Object Oriented class types versus records*
+
+#!fsharp
+
+open System
+
+type FileDescriptionOO(path:string, name:string, lastModified:DateTime) =
+    member __.Path = path
+    member __.Name = name
+    member __.LastModified = lastModified
+
+open System.IO
+
+let fileSystemInfoOO (rootPath : string) =
+    Directory.EnumerateFiles(rootPath, "*.*",
+                                SearchOption.AllDirectories)
+    |> Seq.map (fun path ->
+        FileDescriptionOO(path |> Path.GetDirectoryName,
+                          path |> Path.GetFileName,
+                          (FileInfo(path)).LastWriteTime))
+
+#!markdown
+
+Listing 7-8. *Representing latitude and longitude using a class*
+
+#!fsharp
+
+type LatLon(latitude : float, longitude : float) =
+    member __.Latitude = latitude
+    member __.Longitude = longitude
+
+#!markdown
+
+Listing 7-9. *Some types are less equal than others!*
+
+#!fsharp
+
+let waterloo = LatLon(51.5031, -0.1132)
+let victoria = LatLon(51.4952, -0.1441)
+let waterloo2 = LatLon(51.5031, -0.1132)
+
+// false
+printfn "%A" (waterloo = victoria)
+// true
+printfn "%A" (waterloo = waterloo)
+// false!
+printfn "%A" (waterloo = waterloo2)
+
+#!markdown
+
+Listing 7-10. *Default structural (content) equality with record types*
+
+#!fsharp
+
+type LatLon = {
+    Latitude : float
+    Longitude : float }
+    
+let waterloo = { Latitude = 51.5031; Longitude = -0.1132 }
+let victoria = { Latitude = 51.4952; Longitude = -0.1441 }
+let waterloo2 = { Latitude = 51.5031; Longitude = -0.1132 }
+// false
+printfn "%A" (waterloo = victoria)
+// true
+printfn "%A" (waterloo = waterloo)
+// true
+printfn "%A" (waterloo = waterloo2)
+
+#!markdown
+
+Listing 7-11. *Do all the fields of your record implement the right equality?*
+
+#!fsharp
+
+type Surveyor(name : string) =
+    member __.Name = name
+
+type LatLon = {
+    Latitude : float
+    Longitude : float
+    SurveyedBy : Surveyor }
+
+let waterloo =
+    { Latitude = 51.5031
+      Longitude = -0.1132
+      SurveyedBy = Surveyor("Kit") }
+
+let waterloo2 =
+    { Latitude = 51.5031
+      Longitude = -0.1132
+      SurveyedBy = Surveyor("Kit") }
+
+// true
+printfn "%A" (waterloo = waterloo)
+// false
+printfn "%A" (waterloo = waterloo2)
+
+#!markdown
+
+Listing 7-12. *Forcing reference equality for record types*
+
+#!fsharp
+
+[<ReferenceEquality>]
+type LatLon = {
+    Latitude : float
+    Longitude : float }
+let waterloo = { Latitude = 51.5031; Longitude = -0.1132 }
+let waterloo2 = { Latitude = 51.5031; Longitude = -0.1132 }
+// true
+printfn "%A" (waterloo = waterloo)
+// false
+printfn "%A" (waterloo = waterloo2)
+
+#!markdown
+
+Listing 7-13. *Marking a record type as a Struct*
+
+#!fsharp
+
+type LatLon = {
+    Latitude : float
+    Longitude : float }
+[<Struct>]
+type LatLonStruct = {
+    Latitude : float
+    Longitude : float }
+let sw = System.Diagnostics.Stopwatch.StartNew()
+let llMany =
+    Array.init 1_000_000 (fun x ->
+        { LatLon.Latitude = float x
+          LatLon.Longitude = float x } )
+// Non struct: 51ms
+printfn "Non struct: %ims" sw.ElapsedMilliseconds
+sw.Restart()
+let llsMany =
+    Array.init 1_000_000 (fun x ->
+        { LatLonStruct.Latitude = float x
+          LatLonStruct.Longitude = float x } )
+// Struct: 17ms
+printfn "Struct: %ims" sw.ElapsedMilliseconds
+
+#!markdown
+
+Listing 7-14. *Struct Records must be mutable instances to mutate fields*
+
+#!fsharp
+
+[<Struct>]
+type LatLonStruct = {
+    mutable Latitude : float
+    mutable Longitude : float }
+let waterloo = { Latitude = 51.5031; Longitude = -0.1132 }
+
+// Error: a value must be mutable in order to mutate the contents.
+// waterloo.Latitude <- 51.5032
+
+let mutable waterloo2 = { Latitude = 51.5031; Longitude = -0.1132 }
+waterloo2.Latitude <- 51.5032
+
+#!markdown
+
+Listing 7-15. *A generic record type*
+
+#!fsharp
+
+type LatLon<'T> = {
+    mutable Latitude : 'T
+    mutable Longitude : 'T }
+
+// LatLon<float>
+let waterloo = { Latitude = 51.5031; Longitude = -0.1132 }
+
+// LatLon<float32>
+let waterloo2 = { Latitude = 51.5031f; Longitude = -0.1132f }
+
+// Error: Type Mismatch...
+// printfn "%A" (waterloo = waterloo2)
+
+#!markdown
+
+Listing 7-16. *Pinning down the generic parameter type of a record type*
+
+#!fsharp
+
+type LatLon<'T> = {
+    mutable Latitude : 'T
+    mutable Longitude : 'T }
+
+// LatLon<float>
+let waterloo : LatLon<float> = {
+    Latitude = 51.5031
+    Longitude = -0.1132 }
+    
+// Error: The expression was expected to have type 'float32'
+// but here has type 'float'.
+// let waterloo2 : LatLon<float32> = {
+//     Latitude = 51.5031f
+//     Longitude = -0.1132 }
+
+#!markdown
+
+Listing 7-17. *A recursive Record Type*
+
+#!fsharp
+
+type Point = { X : float32; Y : float32 }
+
+type UiControl = {
+    Name : string
+    Position : Point
+    Parent : UiControl option }
+
+let form = {
+    Name = "MyForm"
+    Position = { X = 0.f; Y = 0.f }
+    Parent = None }
+
+let button = {
+    Name = "MyButton"
+    Position = { X = 10.f; Y = 20.f }
+    Parent = Some form }
+
+#!markdown
+
+Listing 7-18. *Instantiating a circular set of recursive records*
+
+#!fsharp
+
+// You probably don't want to do this!
+type Point = { X : float32; Y : float32 }
+
+type UiControl = {
+    Name : string
+    Position : Point
+    Parent : UiControl }
+
+let rec form = {
+    Name = "MyForm"
+    Position =  { X = 0.f; Y = 0.f }
+    Parent = button }
+
+and button = {
+    Name = "MyButton"
+    Position =  { X = 10.f; Y = 20.f }
+    Parent = form }
+
+#!markdown
+
+Listing 7-19. *Adding an instance method to a Record Type*
+
+#!fsharp
+
+type LatLon = 
+    { Latitude : float
+      Longitude : float }
+    // Naive, straight-line distance
+    member this.DistanceFrom(other : LatLon) =
+                let milesPerDegree = 69.
+                ((other.Latitude - this.Latitude) ** 2.)
+                +
+                ((other.Longitude - this.Longitude) ** 2.)
+                |> sqrt
+                |> (*) milesPerDegree
+
+let coleman = {
+    Latitude = 31.82
+    Longitude = -99.42 }
+
+let abilene = {
+    Latitude = 32.45
+    Longitude = -99.75 }
+
+// Are we going to Abilene? Because it's 49 miles!
+printfn "Are we going to Abilene? Because it's %0.0f miles!"
+    (abilene.DistanceFrom(coleman))
+
+#!markdown
+
+Listing 7-20. *Adding a static method to a Record Type*
+
+#!fsharp
+
+open System
+
+type LatLon = 
+    { Latitude : float
+      Longitude : float }
+    static member TryFromString(s : string) =
+        match s.Split([|','|]) with
+        | [|lats; lons|] ->
+            match (Double.TryParse(lats),
+                    Double.TryParse(lons)) with
+            | (true, lat), (true, lon) ->
+                { Latitude = lat
+                  Longitude = lon } |> Some
+            | _ -> None
+        | _ -> None
+
+// Some {Latitude = 50.514444;
+//       Longitude = -2.457222;}
+let somewhere = LatLon.TryFromString "50.514444, -2.457222"
+
+// None
+let nowhere = LatLon.TryFromString "hullo trees"
+
+printfn "%A, %A" somewhere nowhere
+
+#!markdown
+
+Listing 7-21. *Overriding a method on a Record*
+
+#!fsharp
+
+type LatLon = {
+    Latitude : float
+    Longitude : float }
+    with
+        override this.ToString() =
+            sprintf "%f, %f" this.Latitude this.Longitude
+            
+// 51.972300, 1.149700
+{ Latitude = 51.9723
+  Longitude = 1.1497 }
+|> printfn "%O"
+
+#!markdown
+
+Listing 7-22. *Creating Anonymous Records*
+
+#!fsharp
+
+// {| Latitude : float; Longitude : float |} 
+let waterloo = {| Latitude = 51.5031; Longitude = -0.1132 |}
+
+// {| Latitude : float; Longitude : float |} 
+let victoria = {| Latitude = 51.4952; Longitude = -0.1441 |}
+
+printfn "%0.2f, %0.2f; %0.2f, %0.2f" 
+    waterloo.Latitude waterloo.Longitude
+    victoria.Latitude victoria.Longitude
+
+#!markdown
+
+Listing 7-23. *Type safety and Anonymous Records*
+
+#!fsharp
+
+let waterloo = {| Latitude = 51.5031; Longitude = -0.1132 |}
+
+// The type 'float32' does not match the type 'float'
+// let newLatitude = waterloo.Latitude + 0.1f
+
+#!markdown
+
+Listing 7-24. *Using Anonymous Records to clarify intermediate values*
+
+#!fsharp
+
+let artists = 
+    [|
+        "The Bangles"; "Bananarama"; "Theo Travis"
+        "The The"; "A Flock of Seagulls"; "REM"; "ABBA";
+        "eden ahbez"; "Fairport Convention"; "Elbow"
+    |]
+
+let getSortName (prefixes : seq<string>) (name : string) =
+    prefixes
+    |> Seq.tryFind name.StartsWith
+    |> Option.map (fun prefix ->
+        let mainName = name.Substring(prefix.Length)
+        sprintf "%s, %s" mainName prefix)
+    |> Option.defaultValue name
+
+let sortedArtists =
+    artists
+    |> Array.map (fun artist ->
+        let displayName = artist |> getSortName ["The "; "A "; "An "]
+        {| Name = artist
+           DisplayName = displayName
+           SortName = displayName.ToUpperInvariant() |})
+    |> Array.sortBy (fun sortableArtist ->
+        sortableArtist.SortName)
+
+sortedArtists
+
+#!markdown
+
+Listing 7-25. *Equality and comparison of Anonymous Record instances*
+
+#!fsharp
+
+let waterloo = {| Latitude = 51.5031; Longitude = -0.1132 |}
+let victoria = {| Latitude = 51.4952; Longitude = -0.1441 |}
+let waterloo2 = {| Latitude = 51.5031; Longitude = -0.1132 |}
+
+// false
+printfn "%A" (waterloo = victoria)
+// true
+printfn "%A" (waterloo = waterloo)
+// true
+printfn "%A" (waterloo = waterloo2)
+// true, because (51.5031,-0.1132 is 'greater' than (51.4952, -0.1441)
+printfn "%A" (waterloo > victoria)
+
+#!markdown
+
+Listing 7-26. *Anonymous Records with the same names and types of fields are the same type*
+
+#!fsharp
+
+let getSomePositions() =
+    [|
+        {| Latitude = 51.5031; Longitude = -0.1132 |}
+        {| Latitude = 51.4952; Longitude = -0.1441 |}
+    |]
+
+let getSomeMorePositions() =
+    [| 
+        {| Latitude = 51.508; Longitude = -0.125 |}
+        {| Latitude = 51.5173; Longitude = -0.1774 |}
+    |]
+
+let getSinglePositions() = 
+    [| 
+        {| Latitude = 51.508f; Longitude = -0.125f |}
+        {| Latitude = 51.5173f; Longitude = -0.1774f |}
+    |]    
+
+let p1 = getSomePositions() |> Array.head
+let p2 = getSomeMorePositions() |> Array.head
+let p3 = getSinglePositions() |> Array.head
+
+// f__AnonymousType3108251393`2[System.Double,System.Double]
+printfn "%A" (p1.GetType())
+// f__AnonymousType3108251393`2[System.Double,System.Double]
+printfn "%A" (p2.GetType())
+// true
+printfn "%A" (p1.GetType() = p2.GetType())
+// false
+printfn "%A" (p1 = p2)
+
+// f__AnonymousType3108251393`2[System.Single,System.Single]
+printfn "%A" (p3.GetType())
+// false
+printfn "%A" (p1.GetType() = p3.GetType())
+
+// Error: Type mismatch
+//printfn "%A" (p1 = p3)
+
+#!markdown
+
+Listing 7-27. *Copy-and-update operations on Anonymous Records*
+
+#!fsharp
+
+let waterloo = {| Latitude = 51.5031; Longitude = -0.1132 |}
+
+let nearWaterloo =
+     {| waterloo 
+        with Latitude = waterloo.Latitude + 1.0 |}
+
+let waterloo3d =
+    {| waterloo 
+        with AltitudeMetres = 15.0 |}
+
+let nearWaterloo3d =
+    {| waterloo
+        with 
+            Latitude = waterloo.Latitude + 1.0
+            AltitudeMetres = 15.0 |}
+
+#!markdown
+
+Listing 7-28. *Creating a new Anonymous Record with an additional field, based on a named record*
+
+#!fsharp
+
+type LatLon = { Latitude : float; Longitude : float }
+
+let waterloo = { Latitude = 51.5031; Longitude = -0.1132 }
+
+// {| Latitude = 52.531; Longitude = -0.1132; AltitudeMetres = 15.0 |}
+let nearWaterloo3d = 
+    {| waterloo 
+        with
+            Latitude = waterloo.Latitude + 1.0
+            AltitudeMetres = 15.0 |}
+
+#!markdown
+
+Listing 7-29. *Serializing and deserializing Anonymous Records*
+
+#!fsharp
+
+open System.Text.Json
+
+let waterloo = {| Latitude = 51.5031; Longitude = -0.1132 |}
+
+let json = JsonSerializer.Serialize(waterloo)
+
+// {"Latitude":51.5031,"Longitude":-0.1132}
+printfn "%s" json
+
+let waterloo2 = 
+    JsonSerializer.Deserialize<
+        {| Latitude : float; Longitude : float |}>(json)
+
+// { Latitude = 51.5031
+//   Longitude = -0.1132 }
+printfn "%A" waterloo2
+
+#!markdown
+
+Listing 7-30. *Using Anonymous Records to deserialize JSON API results*
+
+#!fsharp
+
+open System.Net.Http
+open System.Text.Json
+
+let client = new HttpClient()
+
+let response = 
+    client.GetStringAsync("http://api.plos.org/search?q=title:DNA").Result
+
+let abstracts = 
+    JsonSerializer.Deserialize<
+        {| response : 
+            {| docs : 
+                {| id : string; ``abstract`` : string[] |}[]
+            |}
+        |}>(response)
+
+// { response =
+//    { docs =
+//       [|{ abstract =
+//            [|"Nucleic acids, due to their structural and chemical properties, can form double-stranded secondary...
+//           id = "10.1371/journal.pone.0000290" }; ...
+printfn "%A" abstracts
+
+#!markdown
+
+Listing 7-31. *Anonymous records in type hints*
+
+#!fsharp
+
+let toSinglePrecision 
+    (latLon : {| Latitude : float; Longitude : float |}) 
+        : {| Latitude : single; Longitude : single |} =
+            {| Latitude = latLon.Latitude |> single
+               Longitude = latLon.Longitude |> single |}
+
+let waterloo = {| Latitude = 51.5031; Longitude = -0.1132 |}
+let waterlooSingle = waterloo |> toSinglePrecision
+
+waterlooSingle
+
+#!markdown
+
+Listing 7-32. *Structural Anonymous Records*
+
+#!fsharp
+
+let waterloo = struct {| Latitude = 51.5031; Longitude = -0.1132 |}
+
+let formatLatLon 
+    (latLon : struct {| Latitude : float; Longitude : float |} ) = 
+        sprintf "Latitude: %0.3f, Longitude: %0.3f"
+            latLon.Latitude latLon.Longitude
+
+// Type inference deduces that the anonymous record being 
+// instantiated here is a struct.
+// "Latitude: 51.495, Longitude: -0.144"
+printfn "%s" 
+    (formatLatLon {| Latitude = 51.4952; Longitude = -0.1441 |})
+
+#!markdown
+
+Listing 7-33. *You cannot pattern match on anonymous records*
+
+#!fsharp
+
+let songs =
+   [ {| Id = 1
+        Title = "Summertime"
+        Artist = "Ray Barretto"
+        Length = 99 |}
+     {| Id = 2
+        Title = "La clave, maraca y guiro"
+        Artist = "Chico Alvarez"
+        Length = 99 |}
+     {| Id = 3
+        Title = "Summertime"
+        Artist = "DJ Jazzy Jeff & The Fresh Prince"
+        Length = 99 |} ]
+
+// Doesn't compile:
+let formatMenuItem ( {| Title = title; Artist = artist |} ) =
+    let shorten (s : string) = s.Substring(0, 10)
+    sprintf "%s - %s" (shorten title) (shorten artist)
+
+#!markdown
+
+Listing 7-34. *Good and bad Record Type layout*
+
+#!fsharp
+
+// Declaration:
+
+// Good
+type LatLon1 = { Lat : float; Lon : float }
+// Good
+
+type LatLon2 =
+    { Latitude : float
+      Longitude : float }
+
+// Good
+type LatLon3 = {
+    Latitude : float
+    Longitude : float }
+
+// Bad - needless semi-colons
+type LatLon4 = {
+    Latitude : float;
+    Longitude : float }
+
+// Bad - mixed newline style
+type Position = { Lat : float; Lon : float
+                  Altitude : float }
+
+// Instantiation:
+
+// Good
+let ll1 = { Lat = 51.9723; Lon = 1.1497 }
+
+// Good
+let ll2 =
+    { Latitude = 51.9723
+      Longitude = 1.1497 }
+
+// Bad - needless semi-colons
+let ll3 =
+    { Latitude = 51.9723;
+      Longitude = 1.1497 }
+
+// Bad - mixed newline style
+let position = { Lat = 51.9723; Lon = 1.1497
+                 Altitude = 22.3 }
+
+#!markdown
+
+## Exercises
+
+#!markdown
+
+Exercise 7.3 *Equality and comparison*
+
+#!fsharp
+
+type Track (name : string, artist : string) =
+    member __.Name = name
+    member __.Artist = artist
+    
+let tracks =
+    [ Track("The Mollusk", "Ween")
+      Track("Bread Hair", "They Might Be Giants")
+      Track("The Mollusk", "Ween") ]
+    // Error: The type 'Track' does not support the
+    // comparison constraint
+    |> Set.ofList
+
+#!markdown
+
+Exercise 7.4 *Modifying records*
+
+#!fsharp
+
+open System
+
+[<Struct>]
+type Position = {
+    X : float32
+    Y : float32
+    Z : float32
+    Time : DateTime }
+
+#!markdown
+
+## Exercise Solutions
+
+#!markdown
+
+Exercise 7-1. *Records and Performance* (Solution)
+
+#!fsharp
+
+open System
+
+[<Struct>]
+type Position = {
+    X : float32
+    Y : float32
+    Z : float32
+    Time : DateTime }
+
+let sw = System.Diagnostics.Stopwatch.StartNew()
+
+let test =
+    Array.init 1_000_000 (fun i ->
+        { X = float32 i
+          Y = float32 i
+          Z = float32 i
+          Time = DateTime.MinValue } )
+
+sprintf "%ims" sw.ElapsedMilliseconds 
+
+#!markdown
+
+Exercise 7.3 *Equality and Comparison* (Solution)
+
+#!fsharp
+
+type Track = {
+    Name : string
+    Artist : string }
+
+// set [{Name = "Bread Hair";
+//       Artist = "They Might Be Giants";};
+//      {Name = "The Mollusk";
+//       Artist = "Ween";}]
+let tracks =
+    [ { Name = "The Mollusk"
+        Artist = "Ween" }
+      { Name = "Bread Hair"
+        Artist = "They Might Be Giants" }
+      { Name = "The Mollusk"
+        Artist = "Ween" } ]
+    |> Set.ofList
+
+#!markdown
+
+Exercise 7-4. *Modifying Records* (Solution)
+
+#!fsharp
+
+open System
+
+[<Struct>]
+type Position = {
+    X : float32
+    Y : float32
+    Z : float32
+    Time : DateTime }
+
+let translate dx dy dz position =
+    { position with
+        // Prefix "Position." added to make this code more notebook-friendly.
+        Position.X = position.X + dx
+        Position.Y = position.Y + dy
+        Position.Z = position.Z + dz }
+        
+let p1 =
+    { X = 1.0f
+      Y = 2.0f
+      Z = 3.0f
+      Time = DateTime.MinValue }
+
+// { X = 1.5f;
+//   Y = 1.5f;
+//   Z = 4.5f;
+//   Time = 01/01/0001 00:00:00;}
+p1 |> translate 0.5f -0.5f 1.5f
+
+#!markdown
+
+Exercise 7-5. *Solution*
+
+#!fsharp
+
+open System
+
+let sw = System.Diagnostics.Stopwatch.StartNew()
+
+let test =
+    Array.init 1_000_000 (fun i ->
+        struct
+            {| X = float32 i
+               Y = float32 i
+               Z = float32 i
+               Time = DateTime.MinValue |} )
+
+sprintf "%ims" sw.ElapsedMilliseconds 

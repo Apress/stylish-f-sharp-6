@@ -1,0 +1,785 @@
+#!markdown
+
+# Sample code for Chapter 3 of "Stylish F# 6" by Kit Eason
+
+#!markdown
+
+Listing 3-1. *Some ALGOL W code that uses null*
+
+#!markdown
+
+```
+RECORD PERSON (
+    STRING(20) NAME;
+    INTEGER AGE;
+    LOGICAL MALE;
+    REFERENCE(PERSON) FATHER, MOTHER, YOUNGESTOFFSPRING, ELDERSIBLING
+);
+REFERENCE(PERSON) PROCEDURE YOUNGESTUNCLE (REFERENCE(PERSON) R);
+    BEGIN
+        REFERENCE(PERSON) P, M;
+        P := YOUNGESTOFFSPRING(FATHER(FATHER(R)));
+        WHILE (P ¬= NULL) AND (¬ MALE(P)) OR (P = FATHER(R)) DO
+            P := ELDERSIBLING(P);
+        M := YOUNGESTOFFSPRING(MOTHER(MOTHER(R)));
+        WHILE (M ¬= NULL) AND (¬ MALE(M)) DO
+            M := ELDERSIBLING(M);
+        IF P = NULL THEN
+            M
+        ELSE IF M = NULL THEN
+            P
+        ELSE
+            IF AGE(P) < AGE(M) THEN P ELSE M
+    END```
+
+#!markdown
+
+Listing 3-2. *Example of a Discriminated Union*
+
+#!fsharp
+
+type Shape<'T> =
+    | Square of height:'T
+    | Rectangle of height:'T * width:'T
+    | Circle of radius:'T
+
+#!markdown
+
+Listing 3-3. *The Option type viewed as a Discriminated Union*
+
+#!fsharp
+
+type Option<'T> =
+    | Some of 'T
+    | None
+
+#!markdown
+
+Listing 3-4. *Creating and Using the Shape DU*
+
+#!fsharp
+
+type Shape<'T> =
+    | Square of height:'T
+    | Rectangle of height:'T * width:'T
+    | Circle of radius:'T
+
+let describe (shape : Shape<float>) =
+    match shape with
+    | Square h -> sprintf "Square of height %f" h
+    | Rectangle(h, w) -> sprintf "Rectangle %f x %f" h w
+    | Circle r -> sprintf "Circle of radius %f" r
+
+let goldenRect = Rectangle(1.0, 1.61803)
+// Rectangle 1.000000 x 1.618030
+printfn "%s" (describe goldenRect)
+
+#!markdown
+
+Listing 3-5. *Creating and Using the Option DU*
+
+#!fsharp
+
+let myMiddleName = Some "Brian"
+let herMiddleName = None
+
+let displayMiddleName (name : Option<string>) =
+    match name with
+    | Some s -> s
+    | None -> ""
+
+// >>>Brian<<<
+printfn ">>>%s<<<" (displayMiddleName myMiddleName)
+// >>><<<
+printfn ">>>%s<<<" (displayMiddleName herMiddleName)
+
+#!markdown
+
+Listing 3-6. *Modeling an optional delivery address using an Option type*
+
+#!fsharp
+
+// Explicitly open FSharp.Core here just because we previously
+// defined our own Some and None cases.  Not needed in normal code.
+open FSharp.Core
+
+type BillingDetails = {
+    Name : string
+    Billing : string
+    Delivery : string option }
+
+let myOrder = {
+    Name = "Kit Eason"
+    Billing = "112 Fibonacci Street\nErehwon\n35813"
+    Delivery = None }
+
+let hisOrder = {
+    Name = "John Doe"
+    Billing = "314 Pi Avenue\nErewhon\n15926"
+    Delivery = Some "16 Planck Parkway\nErewhon\n62291" }
+
+// Error: the expression was expected to have type 'string'
+// but here has type 'string option'
+// printfn "%s" myOrder.Delivery
+// printfn "%s" hisOrder.Delivery
+
+#!markdown
+
+Listing 3-7. *Accessing an option type’s payload using Pattern Matching*
+
+#!fsharp
+
+// Explicitly open FSharp.Core here just because we previously
+// defined our own Some and None cases.  Not needed in normal code.
+open FSharp.Core
+
+// BillingDetails type and examples as Listing 3-6.
+
+let addressForPackage (details : BillingDetails) =
+    let address =
+        match details.Delivery with
+        | Some s -> s
+        | None -> details.Billing
+    sprintf "%s\n%s" details.Name address
+
+// Kit Eason
+// 112 Fibonacci Street
+// Erehwon
+// 35813        printfn "%s" (addressForPackage myOrder)
+
+// John Doe
+// 16 Planck Parkway
+// Erewhon
+// 62291
+printfn "%s" (addressForPackage hisOrder)
+
+#!markdown
+
+Listing 3-8. *Defaulting an Option Type Instance using Option.defaultValue*
+
+#!fsharp
+
+type BillingDetails = {
+    Name : string
+    Billing : string
+    Delivery : string option }
+
+let addressForPackage (details : BillingDetails) =
+    let address =
+        Option.defaultValue details.Billing details.Delivery
+    sprintf "%s\n%s" details.Name address
+
+#!markdown
+
+Listing 3-9. *Using Option.defaultValue in a pipeline*
+
+#!fsharp
+
+let addressForPackage (details : BillingDetails) =
+    let address =
+        details.Delivery
+        |> Option.defaultValue details.Billing
+    sprintf "%s\n%s" details.Name address
+
+#!markdown
+
+Listing 3-10. *Using Option.iter to take an imperative action if a value is populated*
+
+#!fsharp
+
+// Explicitly open FSharp.Core here just because we previously
+// defined our own Some and None cases.  Not needed in normal code.
+open FSharp.Core
+
+let printDeliveryAddress (details : BillingDetails) =
+    details.Delivery
+    |> Option.iter
+        (fun address -> printfn "%s\n%s" details.Name address)
+
+let myOrder = {
+    Name = "Kit Eason"
+    Billing = "112 Fibonacci Street\nErehwon\n35813"
+    Delivery = None }
+
+let hisOrder = {
+    Name = "John Doe"
+    Billing = "314 Pi Avenue\nErewhon\n15926"
+    Delivery = Some "16 Planck Parkway\nErewhon\n62291" }        
+
+// No output at all
+printDeliveryAddress myOrder
+
+// Delivery address:
+// John Doe
+// 16 Planck Parkway
+// Erewhon
+// 62291
+printDeliveryAddress hisOrder
+
+#!markdown
+
+Listing 3-11. *Using Option.map to optionally apply a function, returning an option type*
+
+#!fsharp
+
+let printDeliveryAddress (details : BillingDetails) =
+    details.Delivery
+    |> Option.map
+        (fun address -> address.ToUpper())
+    |> Option.iter
+        (fun address ->
+            printfn "Delivery address:\n%s\n%s"
+                (details.Name.ToUpper()) address)
+
+// No output at all
+myOrder |> printDeliveryAddress
+
+// Delivery address:
+// JOHN DOE
+// 16 PLANCK PARKWAY
+// EREWHON
+// 62291
+printDeliveryAddress hisOrder
+
+#!markdown
+
+Listing 3-12. *Using Option.bind to create a pipeline of might-fail operations*
+
+#!fsharp
+
+// Explicitly open FSharp.Core here just because we previously
+// defined our own Some and None cases.  Not needed in normal code.
+open FSharp.Core
+open System
+
+type BillingDetails = {
+    Name : string
+    Billing : string
+    Delivery : string option } 
+
+let tryLastLine (address : string) =
+    let parts =
+        address.Split([|'\n'|],
+                        StringSplitOptions.RemoveEmptyEntries)
+        
+    match parts with
+    | [||] ->
+        None
+    | parts ->
+        parts |> Array.last |> Some
+
+let tryPostalCode (codeString : string) =
+    match Int32.TryParse(codeString) with
+    | true, i -> i |> Some
+    | false, _ -> None
+
+let postalCodeHub (code : int) =
+    if code = 62291 then
+        "Hub 1"
+    else
+        "Hub 2"
+
+let tryHub (details : BillingDetails) =
+    details.Delivery
+    |> Option.bind tryLastLine
+    |> Option.bind tryPostalCode
+    |> Option.map postalCodeHub
+
+let myOrder = {
+    Name = "Kit Eason"
+    Billing = "112 Fibonacci Street\nErehwon\n35813"
+    Delivery = None }
+
+let hisOrder = {
+    Name = "John Doe"
+    Billing = "314 Pi Avenue\nErewhon\n15926"
+    Delivery = Some "16 Planck Parkway\nErewhon\n62291" }
+
+// None
+printfn "%A" (myOrder |> tryHub)
+
+// Some "Hub 1"
+printfn "%A" (hisOrder |> tryHub)
+
+#!markdown
+
+Listing 3-13. *Antipattern: accessing Option type payloads using hasValue and Value*
+
+#!fsharp
+
+// Accessing payload via .IsSome and .Value
+// Don't do this!
+let printDeliveryAddress (details : BillingDetails) =
+    if details.Delivery.IsSome then
+        printfn "Delivery address:\n%s\n%s"
+            (details.Name.ToUpper())
+            (details.Delivery.Value.ToUpper())
+
+#!markdown
+
+Listing 3-14. *The BillingDetails type*
+
+#!fsharp
+
+type BillingDetails = {
+    Name : string
+    Billing : string
+    Delivery : string option } 
+
+#!markdown
+
+Listing 3-15. *Modeling delivery address possibilities using a DU*
+
+#!fsharp
+
+type Delivery =
+    | AsBilling
+    | Physical of string
+    | Download
+
+type BillingDetails = {
+    Name : string
+    Billing : string
+    Delivery : Delivery }
+
+#!markdown
+
+Listing 3-16. *Consuming the improved BillingDetails type*
+
+#!fsharp
+
+let tryDeliveryLabel (billingDetails : BillingDetails) =
+    match billingDetails.Delivery with
+    | AsBilling ->
+        billingDetails.Billing |> Some
+    | Physical address ->
+        address |> Some
+    | Download ->
+        None
+    |> Option.map (fun address ->
+        sprintf "%s\n%s" billingDetails.Name address)
+
+let deliveryLabels (billingDetails : BillingDetails seq) =
+    billingDetails
+    |> Seq.choose  tryDeliveryLabel
+
+let myOrder = {
+    Name = "Kit Eason"
+    Billing = "112 Fibonacci Street\nErehwon\n35813"
+    Delivery = AsBilling }
+
+let hisOrder = {
+    Name = "John Doe"
+    Billing = "314 Pi Avenue\nErewhon\n15926"
+    Delivery = Physical "16 Planck Parkway\nErewhon\n62291" }
+
+let herOrder = {
+    Name = "Jane Smith"
+    Billing = "9 Gravity Road\nErewhon\n80665"
+    Delivery = Download }
+
+// seq
+//     [ "Kit Eason
+//        112 Fibonacci Street
+//        Erehwon
+//        35813";
+//       "John Doe
+//        16 Planck Parkway
+//        Erewhon
+//        62291"]
+[ myOrder; hisOrder; herOrder ]
+|> deliveryLabels
+
+#!markdown
+
+Listing 3-17. *A null hiding inside an option type*
+
+#!fsharp
+
+type BillingDetails = {
+    Name : string
+    Billing : string
+    Delivery : string option }
+
+let printDeliveryAddress (details : BillingDetails) =
+    details.Delivery
+    |> Option.map
+        (fun address -> address.ToUpper())
+    |> Option.iter
+        (fun address ->
+            printfn "Delivery address:\n%s\n%s"
+                (details.Name.ToUpper()) address)
+
+let dangerOrder = {
+    Name = "Will Robinson"
+    Billing = "2 Jupiter Avenue\nErewhon\n199732"
+    Delivery = Some null }
+
+// NullReferenceException
+printDeliveryAddress dangerOrder
+
+#!markdown
+
+Listing 3-18. *Validating strings on construction*
+
+#!fsharp
+
+type SafeString (s : string) =
+    do
+        if s = null then
+            raise <| System.ArgumentException()
+    member __.Value = s
+    override __.ToString() = s
+
+type BillingDetails = {
+    Name : SafeString
+    Billing :  SafeString
+    Delivery : SafeString option }
+
+let printDeliveryAddress (details : BillingDetails) =
+    details.Delivery
+    |> Option.map
+        (fun address -> address.Value.ToUpper())
+    |> Option.iter
+        (fun address ->
+            printfn "Delivery address:\n%s\n%s"
+                (details.Name.Value.ToUpper()) address)
+
+// NullReferenceException at construction time
+let dangerOrder = {
+    Name = SafeString "Will Robinson"
+    Billing = SafeString "2 Jupiter Avenue\nErewhon\n199732"
+    Delivery = SafeString null |> Some }
+
+#!markdown
+
+Listing 3-19. *Using Option.ofObj*
+
+#!fsharp
+
+let myApiFunction (stringParam : string) =
+    let s =
+        stringParam
+        |> Option.ofObj
+        |> Option.defaultValue "(none)"
+    // You can do things here knowing that s isn't null
+    printfn "%s" (s.ToUpper())
+    
+// HELLO
+myApiFunction "hello"
+// (NONE)
+myApiFunction null
+
+#!markdown
+
+Listing 3-20. *Using Option.ofNullable*
+
+#!fsharp
+
+open System
+
+let showHeartRate (rate : Nullable<int>) =
+    rate
+    |> Option.ofNullable
+    |> Option.map (fun r -> r.ToString())
+    |> Option.defaultValue "N/A"
+
+// 96
+printfn "%s" (showHeartRate (System.Nullable(96)))
+// N/A
+printfn "%s" (showHeartRate (System.Nullable()))
+
+#!markdown
+
+Listing 3-21. *Using Option.toObj*
+
+#!fsharp
+
+open System
+
+let random = new Random()
+
+let tryLocationDescription (locationId : int) =
+    // In reality this would be attempting
+    // to get the location from a database etc.
+    let r = random.Next(1, 100)
+    if r < 50 then
+        Some (sprintf "Location number %i" r)
+    else
+        None
+
+let tryLocationDescriptionNullable (locationId : int) =
+    tryLocationDescription locationId
+    |> Option.toObj
+
+// Sometimes null, sometimes "Location number #"
+tryLocationDescriptionNullable 99
+
+#!markdown
+
+Listing 3-22. *Returning success or failure as a Boolean, with result in a reference parameter*
+
+#!fsharp
+
+open System
+
+let random = new Random()
+
+let tryLocationDescription (locationId : int, description : string byref) : bool =
+    // In reality this would be attempting
+    // to get the description from a database etc.
+    let r = random.Next(1, 100)
+    if r < 50 then
+        description <- sprintf "Location number %i" r
+        true
+    else
+        description <- null
+        false
+
+#!markdown
+
+Listing 3-23. *Using Option.toNullable*
+
+#!fsharp
+
+open System
+
+let random = new Random()
+
+let getHeartRateInternal() =
+    // In reality this would be attempting
+    // to get a heart rate from a sensor:
+    let rate = random.Next(0, 200)
+    if rate = 0 then
+        None
+    else
+        Some rate
+
+let tryGetHeartRate () =
+    getHeartRateInternal()
+    |> Option.toNullable
+
+#!markdown
+
+Listing 3-24. *C# 8.0 Syntax for nullable and non-nullable types*
+
+#!csharp
+
+#nullable enable
+
+class Person
+{
+    public string FirstName;   // Not null
+    public string? MiddleName; // May be null
+    public string LastName;    // Not null
+}
+
+var person = new Person();
+person.FirstName = "Jane";
+person.MiddleName = null;
+// "Cannot convert null literal to non-nullable reference type"
+person.LastName = null;
+
+#!markdown
+
+Listing 3-25. *Using the ValueOption type*
+
+#!fsharp
+
+let valueOptionString (v : int voption) =
+    match v with
+    | ValueSome x ->
+        sprintf "Value: %i" x
+    | ValueNone ->
+        sprintf "No value"
+
+// "No value"
+ValueOption.ValueNone
+|> valueOptionString
+|> printfn "%s"
+
+// "Value: 99"
+ValueOption.ValueSome 99
+|> valueOptionString
+|> printfn "%s"
+
+#!markdown
+
+## Exercises
+
+#!markdown
+
+Exercise 3-1. *Supporting Click and Collect*
+
+#!fsharp
+
+let tryDeliveryLabel (billingDetails : BillingDetails) =
+    match billingDetails.Delivery with
+    | AsBilling ->
+        billingDetails.Billing |> Some
+    | Physical address ->
+        address |> Some
+    | Download -> None
+    |> Option.map (fun address ->
+        sprintf "%s\n%s" billingDetails.Name address)
+
+let deliveryLabels (billingDetails : BillingDetails seq) =
+    billingDetails
+    |> Seq.choose  tryDeliveryLabel
+
+let myOrder = {
+    Name = "Kit Eason"
+    Billing = "112 Fibonacci Street\nErehwon\n35813"
+    Delivery = AsBilling }
+
+let hisOrder = {
+    Name = "John Doe"
+    Billing = "314 Pi Avenue\nErewhon\n15926"
+    Delivery = Physical "16 Planck Parkway\nErewhon\n62291" }
+
+let herOrder = {
+    Name = "Jane Smith"
+    Billing = "9 Gravity Road\nErewhon\n80665"
+    Delivery = Download }
+
+// seq
+//     [ "Kit Eason
+//        112 Fibonacci Street
+//        Erehwon
+//        35813";
+//       "John Doe
+//        16 Planck Parkway
+//        Erewhon
+//        62291"]
+[ myOrder; hisOrder; herOrder ]
+|> deliveryLabels
+
+#!markdown
+
+Exercise 3-2. *Counting non-nulls*
+
+#!fsharp
+
+type BillingDetails = {
+    Name : string
+    Billing : string
+    Delivery : string option }
+
+let myOrder = {
+    Name = "Kit Eason"
+    Billing = "112 Fibonacci Street\nErehwon\n35813"
+    Delivery = None }
+
+let hisOrder = {
+    Name = "John Doe"
+    Billing = "314 Pi Avenue\nErewhon\n15926"
+    Delivery = None }
+
+let herOrder = {
+    Name = "Jane Smith"
+    Billing = null
+    Delivery = None }
+
+let orders = [| myOrder; hisOrder; herOrder |]
+
+#!markdown
+
+## Exercise Solutions
+
+#!markdown
+
+Exercise 3-1. *Supporting Click and Collect* (Solution)
+
+#!fsharp
+
+type Delivery =
+    | AsBilling
+    | Physical of string
+    | Download
+    | ClickAndCollect of int
+
+type BillingDetails = {
+    Name : string
+    Billing :  string
+    Delivery : Delivery }
+
+let collectionsFor (storeId : int) (billingDetails : BillingDetails seq) =
+    billingDetails
+    |> Seq.choose (fun d ->
+        match d.Delivery with
+        | ClickAndCollect s when s = storeId ->
+            Some d
+        | _ -> None)
+
+let tryDeliveryLabel (billingDetails : BillingDetails) =
+    match billingDetails.Delivery with
+    | AsBilling ->
+        billingDetails.Billing |> Some
+    | Physical address ->
+        address |> Some
+    | Download ->
+        None
+    | ClickAndCollect _ ->
+        None
+    |> Option.map (fun address ->
+        sprintf "%s\n%s" billingDetails.Name address)        
+
+let myOrder = {
+    Name = "Kit Eason"
+    Billing = "112 Fibonacci Street\nErehwon\n35813"
+    Delivery = AsBilling }
+
+let yourOrder = {
+    Name = "Alison Chan"
+    Billing = "885 Electric Avenue\nErewhon\n41878"
+    Delivery = ClickAndCollect 1 }
+
+let theirOrder = {
+    Name = "Pana Okpik"
+    Billing = "299 Relativity Drive\nErewhon\n79245"
+    Delivery = ClickAndCollect 2 }
+
+// { name = "Alison Chan";
+//   billing = "885 Electric Avenue
+//              Erewhon
+//              41878"; }
+//   delivery = ClickAndCollect 1;}
+[ myOrder; yourOrder; theirOrder ]
+|> collectionsFor 1
+|> Seq.iter (printfn "%A")
+
+#!markdown
+
+Exercise 3-2. *Counting non-nulls* (Solution)
+
+#!fsharp
+
+type BillingDetails = {
+    Name : string
+    Billing : string
+    Delivery : string option }
+
+let myOrder = {
+    Name = "Kit Eason"
+    Billing = "112 Fibonacci Street\nErehwon\n35813"
+    Delivery = None }
+
+let hisOrder = {
+    Name = "John Doe"
+    Billing = "314 Pi Avenue\nErewhon\n15926"
+    Delivery = None }
+
+let herOrder = {
+    Name = "Jane Smith"
+    Billing = null
+    Delivery = None }
+
+let orders = [| myOrder; hisOrder; herOrder |]
+
+let countNonNullBillingAddresses (orders : seq<BillingDetails>) =
+    orders
+    |> Seq.map (fun bd -> bd.Billing)
+    |> Seq.map Option.ofObj
+    |> Seq.sumBy Option.count
+
+countNonNullBillingAddresses orders

@@ -1,0 +1,304 @@
+#!markdown
+
+# Sample code for Chapter 2 of "Stylish F# 6" by Kit Eason
+
+#!markdown
+
+Listing 2-1. *Sketching out a function signature*
+
+#!fsharp
+
+open System
+
+let convertMilesYards (milesPointYards : float) : float =
+    raise <| NotImplementedException()
+
+#!markdown
+
+Listing 2-2. *Naïvely coded function body*
+
+#!fsharp
+
+let convertMilesYards (milesPointYards : float) : float =
+    let wholeMiles = milesPointYards |> floor
+    let fraction = milesPointYards - float(wholeMiles)
+    wholeMiles + (fraction / 0.1760)
+    
+// val decimalMiles : float = 1.5
+let decimalMiles = 1.0880 |> convertMilesYards
+
+printfn "%0.4f" decimalMiles
+
+#!markdown
+
+Listing 2-3. *Bounds checking within the conversion function*
+
+#!fsharp
+
+open System
+
+let convertMilesYards (milesPointYards : float) : float =
+    let wholeMiles = milesPointYards |> floor
+    let fraction = milesPointYards - float(wholeMiles)
+    if fraction > 0.1759 then
+        raise <| ArgumentOutOfRangeException(nameof(milesPointYards),
+                        "Fractional part must be <= 0.1759")
+    wholeMiles + (fraction / 0.1760)
+
+// System.ArgumentOutOfRangeException: Fractional part must be <= 0.1759
+// Parameter name: milesPointYards
+let decimalMiles = 1.1760 |> convertMilesYards
+
+#!markdown
+
+Listing 2-4. *Miles and yards as a Single-Case Discriminated Union*
+
+#!fsharp
+
+type MilesYards = MilesYards of wholeMiles : int * yards : int
+
+#!markdown
+
+Listing 2-5. *An immutable class in C#*
+
+#!csharp
+
+public class MilesYards
+{
+    private readonly int wholeMiles;
+    private readonly int yards;
+    public MilesYards(int wholeMiles, int yards)
+    {
+        this.wholeMiles = wholeMiles;
+        this.yards = yards;
+    }
+    public int WholeMiles { get { return this.wholeMiles; } }
+    public int Yards { get { return this.yards; } }
+}
+
+#!markdown
+
+Listing 2-6. *A Single-Case Discriminated Union without field names*
+
+#!fsharp
+
+type MilesYards = MilesYards of int * int
+
+#!markdown
+
+Listing 2-7. *Constructing and validating a MilesYards instance*
+
+#!fsharp
+
+open System
+
+type MilesYards = MilesYards of wholeMiles : int * yards : int
+
+let create (milesPointYards : float) : MilesYards =
+    let wholeMiles = milesPointYards |> floor |> int
+    let fraction = milesPointYards - float(wholeMiles)
+    if fraction > 0.1759 then
+        raise <| ArgumentOutOfRangeException(nameof(milesPointYards), "Fractional part must be <= 0.1759")
+    let yards = fraction * 10_000. |> round |> int
+    MilesYards(wholeMiles, yards)
+
+#!markdown
+
+Listing 2-8. *Computing decimal miles from a MilesYards instance*
+
+#!fsharp
+
+let milesYardsToDecimalMiles (milesYards : MilesYards) : float =
+    match milesYards with
+    | MilesYards(wholeMiles, yards) ->
+        (float wholeMiles) + ((float yards) / 1760.)
+
+#!markdown
+
+Listing 2-9. *Using a module to associate functions with a type*
+
+#!fsharp
+
+open System
+
+type MilesYards = MilesYards of wholeMiles : int * yards : int
+
+module MilesYards = 
+    let fromMilesPointYards (milesPointYards : float) : MilesYards =
+        let wholeMiles = milesPointYards |> floor |> int
+        let fraction = milesPointYards - float(wholeMiles)
+        if fraction > 0.1759 then
+            raise <| ArgumentOutOfRangeException(nameof(milesPointYards),
+                        "Fractional part must be <= 0.1759")
+        let yards = fraction * 10_000. |> round |> int
+        MilesYards(wholeMiles, yards)
+
+    let toDecimalMiles (milesYards : MilesYards) : float =
+            match milesYards with
+            | MilesYards(wholeMiles, yards) ->
+                (float wholeMiles) + ((float yards) / 1760.)
+
+// 4.5
+printfn "%f" 
+    (MilesYards.fromMilesPointYards(4.0880) |> MilesYards.toDecimalMiles)
+// Error: System.ArgumentOutOfRangeException: Fractional 
+// part must be <= 0.1759 (Parameter 'milesPointYards')
+printfn "%A" (MilesYards.fromMilesPointYards(4.5))
+
+#!markdown
+
+Listing 2-10. *Hiding the DU constructor*
+
+#!fsharp
+
+open System
+
+module MilesYards =
+
+    type MilesYards =
+        private MilesYards of wholeMiles : int * yards : int
+
+    let fromMilesPointYards (milesPointYards : float) : MilesYards =
+        let wholeMiles = milesPointYards |> floor |> int
+        let fraction = milesPointYards - float(wholeMiles)
+        if fraction > 0.1759 then
+            raise <| ArgumentOutOfRangeException(nameof(milesPointYards), "Fractional part must be <= 0.1759")
+        let yards = fraction * 10_000. |> round |> int
+        MilesYards(wholeMiles, yards)
+        
+    let toDecimalMiles (milesYards : MilesYards) : float =
+        match milesYards with
+        | MilesYards(wholeMiles, yards) ->
+            (float wholeMiles) + ((float yards) / 1760.)
+
+#!markdown
+
+Listing 2-11. *A pretty good implementation of miles.yards conversion*
+
+#!fsharp
+
+open System
+
+type MilesYards = MilesYards of wholeMiles : int * yards : int
+
+module MilesYards =
+
+    let fromMilesPointYards (milesPointYards : float) : MilesYards =
+        let wholeMiles = milesPointYards |> floor |> int
+        let fraction = milesPointYards - float(wholeMiles)
+        if fraction > 0.1759 then
+            raise <| ArgumentOutOfRangeException(nameof(milesPointYards), "Fractional part must be <= 0.1759")
+        let yards = fraction * 10_000. |> round |> int
+        MilesYards(wholeMiles, yards)
+        
+    let toDecimalMiles (milesYards : MilesYards) : float =
+        match milesYards with
+        | MilesYards(wholeMiles, yards) ->
+            (float wholeMiles) + ((float yards) / 1760.)
+
+#!markdown
+
+Listing 2-12. *Pattern matching in parameter declarations*
+
+#!fsharp
+
+open System
+
+type MilesYards = MilesYards of wholeMiles : int * yards : int
+
+module MilesYards =
+
+    let fromMilesPointYards (milesPointYards : float) : MilesYards =
+        let wholeMiles = milesPointYards |> floor |> int
+        let fraction = milesPointYards - float(wholeMiles)
+        if fraction > 0.1759 then
+            raise <| ArgumentOutOfRangeException(nameof(milesPointYards), "Fractional part must be <= 0.1759")
+        let yards = fraction * 10_000. |> round |> int
+        MilesYards(wholeMiles, yards)
+
+    let toDecimalMiles (MilesYards(wholeMiles, yards)) : float =
+        (float wholeMiles) + ((float yards) / 1760.)
+
+#!markdown
+
+Listing 2-13. *Using an operator to simplify mixing floating point and integer values*
+
+#!fsharp
+
+open System
+
+type MilesYards = MilesYards of wholeMiles : int * yards : int
+
+module MilesYards =
+
+    let private (~~) = float
+
+    let fromMilesPointYards (milesPointYards : float) : MilesYards =
+        let wholeMiles = milesPointYards |> floor |> int
+        let fraction = milesPointYards - float(wholeMiles)
+        if fraction > 0.1759 then
+            raise <| ArgumentOutOfRangeException(nameof(milesPointYards), "Fractional part must be <= 0.1759")
+        let yards = fraction * 10_000. |> round |> int
+        MilesYards(wholeMiles, yards)
+
+    let toDecimalMiles (MilesYards(wholeMiles, yards)) : float =
+        ~~wholeMiles + (~~yards / 1760.)
+
+#!markdown
+
+## Exercise Solutions
+
+#!markdown
+
+Exercise 2-1. *Handling negative distances* (Solution)
+
+#!fsharp
+
+open System
+
+type MilesYards = MilesYards of wholeMiles : int * yards : int
+
+module MilesYards =
+
+    let private (~~) = float
+
+    let fromMilesPointYards (milesPointYards : float) : MilesYards =
+        let wholeMiles = milesPointYards |> floor |> int
+        let fraction = milesPointYards - float(wholeMiles)
+        if fraction > 0.1759 then
+            raise <| ArgumentOutOfRangeException(nameof(milesPointYards), "Fractional part must be <= 0.1759")
+        if milesPointYards < 0.0 then
+            raise <| ArgumentOutOfRangeException(nameof(milesPointYards), "Must be > 0.0")            
+        let yards = fraction * 10_000. |> round |> int
+        MilesYards(wholeMiles, yards)
+
+    let toDecimalMiles (MilesYards(wholeMiles, yards)) : float =
+        ~~wholeMiles + (~~yards / 1760.)
+
+// Error: System.ArgumentOutOfRangeException: Must be > 0.0 (Parameter 'milesPointYards') 
+printfn "%A" (MilesYards.fromMilesPointYards(-1.))        
+
+#!markdown
+
+Exercise 2.2. *Handling distances involving chains* (Solution)
+
+#!fsharp
+
+open System
+
+module MilesChains =
+
+    let private (~~) = float
+
+    type MilesChains =
+        private MilesChains of wholeMiles : int * chains : int
+
+    let fromMilesChains(wholeMiles : int, chains : int) =
+        if wholeMiles < 0 then
+            raise <| ArgumentOutOfRangeException(nameof(wholeMiles), "Must be >= 0")
+        if chains < 0 || chains >= 80 then
+            raise <| ArgumentOutOfRangeException(nameof(chains), "Must be >= 0 and < 80")
+        MilesChains(wholeMiles, chains)
+
+    let toDecimalMiles (MilesChains(wholeMiles, chains)) : float =
+        ~~wholeMiles + (~~chains / 80.)

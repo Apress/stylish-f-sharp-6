@@ -1,0 +1,610 @@
+#!markdown
+
+# Sample code for Chapter 13 of "Stylish F# 6" by Kit Eason
+
+#!markdown
+
+Listing 13-3. *Initial state of the minor planets reading code*
+
+#!fsharp
+
+module MinorPlanets =
+
+    open System
+
+    let charArray (s : string) =
+        s.ToCharArray()
+
+    let toDouble (s : string) =
+        match Double.TryParse(s) with
+        | true, x -> Some x
+        | false, x -> None
+
+    let toChar (s : string) =
+        if String.IsNullOrWhiteSpace(s) then None
+        else
+            Some(s.[0])
+
+    let toInt (s : string) =
+        match Int32.TryParse(s) with
+        | true, x -> Some x
+        | false, x -> None
+
+    let columnAsString startInd endInd (line : string) =
+        line.Substring(startInd-1,endInd-startInd+1).Trim()
+
+    let columnAsCharArray startInd endInd (line : string) =
+        charArray(columnAsString startInd endInd line)
+
+    let columnAsInt startInd endInd (line : string) =
+        toInt(columnAsString startInd endInd line)
+
+    let columnAsDouble startInd endInd (line : string) =
+        toDouble(columnAsString startInd endInd line)
+
+    let columnAsChar startInd endInd (line : string) =
+        toChar(columnAsString startInd endInd line)
+
+    type ObservationRange =
+    | SingleOpposition of int
+    | MultiOpposition of int * int
+
+    let rangeFromLine (oppositions : int option) (line : string) =
+        match oppositions with
+        | None -> None
+        | Some o when o = 1 ->
+            line |> columnAsInt 128 131
+            |> Option.map SingleOpposition
+        | Some o ->
+            match (line |> columnAsInt 128 131),
+                  (line |> columnAsInt 133 136) with
+            | Some(firstObservedYear), Some(lastObservedYear) ->
+                MultiOpposition(firstObservedYear,
+                   lastObservedYear) |> Some
+            | _ -> None
+
+    type MinorPlanet = {
+        Designation : string; AbsMag : float option
+        SlopeParam : float option; Epoch : string
+        MeanAnom : float option; Perihelion : float option
+        Node : float option; Inclination : float option
+        OrbEcc : float option; MeanDaily : float option
+        SemiMajor : float option; Uncertainty : char option
+        Reference : string; Observations : int option
+        Oppositions : int option; Range : ObservationRange option
+        RmsResidual : double option; PerturbersCoarse : string
+        PerturbersPrecise : string; ComputerName : string
+        Flags : char[]; ReadableDesignation : string
+        LastOpposition : string }
+
+    let private create (line : string) =
+        let oppositions = line |> columnAsString 124 126 |> toInt
+        let range = line |> rangeFromLine oppositions
+        { 
+            Designation = columnAsString 1 7 line
+            AbsMag = columnAsDouble 9 13 line
+            SlopeParam = columnAsDouble 15 19 line
+            Epoch = columnAsString 21 25 line
+            MeanAnom = columnAsDouble 27 35 line
+            Perihelion = columnAsDouble 38 46 line
+            Node = columnAsDouble 49 57 line
+            Inclination = columnAsDouble 60 68 line
+            OrbEcc = columnAsDouble 71 79 line
+            MeanDaily = columnAsDouble 81 91 line
+            SemiMajor = columnAsDouble 93 103 line
+            Uncertainty = columnAsChar 106 106 line
+            Reference = columnAsString 108 116 line
+            Observations = columnAsInt 118 122 line
+            Oppositions = oppositions
+            Range = range
+            RmsResidual = columnAsDouble 138 141 line
+            PerturbersCoarse = columnAsString 143 145 line
+            PerturbersPrecise = columnAsString 147 149 line
+            ComputerName = columnAsString 151 160 line
+            Flags = columnAsCharArray 162 165 line
+            ReadableDesignation = columnAsString 167 194 line
+            LastOpposition = columnAsString 195 202 line
+        }
+        
+    let createFromData (data : seq<string>) =
+        data
+        |> Seq.skipWhile (fun line ->
+                                        line.StartsWith("----------")
+                                        |> not) |> Seq.skip 1
+        |> Seq.filter (fun line ->
+                            line.Length > 0)
+        |> Seq.map (fun line -> create line)
+
+#!markdown
+
+Listing 13-4. *Trying out the code*
+
+#!fsharp
+
+open System.IO
+
+// Get data from: https://www.minorplanetcenter.net/iau/MPCORB/MPCORB.DAT
+
+// Brightest 10 minor planets (absolute magnitude)
+// Edit the path to reflect where you stored the file:
+@"./MinorPlanets/MPCORB.DAT"
+|> File.ReadLines
+|> MinorPlanets.createFromData
+|> Seq.sortBy (fun mp ->
+    mp.AbsMag |> Option.defaultValue Double.MaxValue)
+|> Seq.truncate 10
+|> Seq.iter (fun mp ->
+    printfn "Name: %s, Abs. magnitude: %0.2f"
+        mp.ReadableDesignation 
+        (mp.AbsMag |> Option.defaultValue nan))
+
+#!markdown
+
+Listing 13-5. *A Convert module*
+
+#!fsharp
+
+module Convert =
+
+    open System
+
+    let toCharArray (s : string) =
+        s.ToCharArray()
+
+    let tryToDouble (s : string) =
+        match Double.TryParse(s) with
+        | true, x -> Some x
+        | false, _ -> None
+
+    let tryToChar (s : string) =
+        if String.IsNullOrWhiteSpace(s) then None
+        else
+            Some(s.[0])
+            
+    let tryToInt (s : string) =
+        match Int32.TryParse(s) with
+        | true, x -> Some x
+        | false, _ -> None
+
+#!markdown
+
+Listing 13-6. *A Column module*
+
+#!fsharp
+
+module Column =
+
+    let asString startInd endInd (line : string) =
+        line.Substring(startInd-1,endInd-startInd+1).Trim()
+
+    let asCharArray startInd endInd (line : string) =
+        Convert.toCharArray(asString startInd endInd line)
+
+    let tryAsInt startInd endInd (line : string) =
+        Convert.tryToInt(asString startInd endInd line)
+
+    let tryAsDouble startInd endInd (line : string) =
+        Convert.tryToDouble(asString startInd endInd line)
+
+    let tryAsChar startInd endInd (line : string) =
+        Convert.tryToChar(asString startInd endInd line)
+
+#!markdown
+
+Listing 13-7. *Alternative layout for dot notation, and using function composition*
+
+#!fsharp
+
+module Column =
+
+    let asString startInd endInd (line : string) =
+        let len = endInd - startInd + 1
+        line
+            .Substring(startInd-1, len)
+            .Trim()
+
+    let asCharArray startInd endInd =
+        (asString startInd endInd) >> Convert.toCharArray
+
+    let tryAsInt startInd endInd =
+        (asString startInd endInd) >> Convert.tryToInt
+
+    let tryAsDouble startInd endInd =
+        (asString startInd endInd) >> Convert.tryToDouble
+
+    let tryAsChar startInd endInd =
+        (asString startInd endInd) >> Convert.tryToChar
+
+#!markdown
+
+Listing 13-9. *The Observation module*
+
+#!fsharp
+
+module Observation =
+
+    type Range =
+        private
+            | SingleOpposition of ArcLengthDays:int
+            | MultiOpposition of FirstYear:int * LastYear:int
+
+    let fromLine (oppositions : int option) (line : string) =
+        match oppositions with
+        | None ->
+            None
+        | Some o when o = 1 ->
+            line
+            |> Column.tryAsInt 128 131
+            |> Option.map SingleOpposition
+        | Some _ ->
+            let firstYear = line |> Column.tryAsInt 128 131
+            let lastYear = line |> Column.tryAsInt 133 136
+            match firstYear, lastYear with
+            | Some(fy), Some(ly) ->
+                MultiOpposition(FirstYear=fy, LastYear=ly) |> Some
+            | _ ->
+                None
+
+#!markdown
+
+Listing 13-10. *Initial state of the minor planet type*
+
+#!fsharp
+
+type MinorPlanet = {
+    Designation : string; AbsMag : float option
+    SlopeParam : float option; Epoch : string
+    MeanAnom : float option; Perihelion : float option
+    Node : float option; Inclination : float option
+    OrbEcc : float option; MeanDaily : float option
+    SemiMajor : float option; Uncertainty : char option
+    Reference : string; Observations : int option
+    Oppositions : int option; Range : Observation.Range option
+    RmsResidual : double option; PerturbersCoarse : string
+    PerturbersPrecise : string; ComputerName : string
+    Flags : char[]; ReadableDesignation : string
+    LastOpposition : string }
+
+#!markdown
+
+Listing 13-11. *A tidier version of the minor planet type*
+
+#!fsharp
+
+module MinorPlanet =
+
+    type Body = {
+        /// Number or provisional designation (packed format)
+        Designation : string
+        /// Absolute magnitude
+        H : float option
+        /// Slope parameter
+        G : float option
+        /// Epoch in packed form
+        Epoch : string
+        /// Mean anomaly at the epoch (degrees)
+        M : float option
+        /// Argument of perihelion, J2000.0 (degrees)
+        Perihelion : float option
+        /// Longitude of the ascending node, J2000.0 (degrees)
+        Node : float option
+        /// Inclination to the ecliptic, J2000.0 (degrees)
+        Inclination : float option
+        /// Orbital eccentricity
+        e : float option
+        /// Mean daily motion (degrees per day)
+        n : float option
+        /// Semimajor axis (AU)
+        a : float option
+        /// Uncertainty parameter
+        Uncertainty : char option
+        /// Reference
+        Reference : string
+        /// Number of observations
+        Observations : int option
+        /// Number of oppositions
+        Oppositions : int option
+        /// Year of first and last observation,
+        /// or arc length in days.
+        Range : Observation.Range option
+        /// RMS residual (arcseconds)
+        RmsResidual : double option
+        /// Coarse indicator of perturbers
+        PerturbersCoarse : string
+        /// Precise indicator of perturbers
+        PerturbersPrecise : string
+        /// Computer name
+        ComputerName : string
+        /// Flags
+        Flags : char[]
+        /// Readable designation
+        ReadableDesignation : string
+        /// Date of last observation included in orbit solution (YYYYMMDD)
+        LastOpposition : string }
+
+#!markdown
+
+Listing 13-12. *Using Greek characters in code*
+
+#!fsharp
+
+let eccentricity ϵ h μ =
+    1. + ((2. * ϵ * h * h) / (μ * μ))
+    |> sqrt
+
+#!markdown
+
+Listing 13-13. *Creating a MinorPlanet.Body instance*
+
+#!fsharp
+
+module MinorPlanet =
+
+    type Body = {
+        /// Number or provisional designation (packed format)
+        Designation : string
+        /// Absolute magnitude
+        H : float option
+        /// Slope parameter
+        G : float option
+        /// Epoch in packed form
+        Epoch : string
+        /// Mean anomaly at the epoch (degrees)
+        M : float option
+        /// Argument of perihelion, J2000.0 (degrees)
+        Perihelion : float option
+        /// Longitude of the ascending node, J2000.0 (degrees)
+        Node : float option
+        /// Inclination to the ecliptic, J2000.0 (degrees)
+        Inclination : float option
+        /// Orbital eccentricity
+        e : float option
+        /// Mean daily motion (degrees per day)
+        n : float option
+        /// Semimajor axis (AU)
+        a : float option
+        /// Uncertainty parameter
+        Uncertainty : char option
+        /// Reference
+        Reference : string
+        /// Number of observations
+        Observations : int option
+        /// Number of oppositions
+        Oppositions : int option
+        /// Year of first and last observation,
+        /// or arc length in days.
+        Range : Observation.Range option
+        /// RMS residual (arcseconds)
+        RmsResidual : double option
+        /// Coarse indicator of perturbers
+        PerturbersCoarse : string
+        /// Precise indicator of perturbers
+        PerturbersPrecise : string
+        /// Computer name
+        ComputerName : string
+        /// Flags
+        Flags : char[]
+        /// Readable designation
+        ReadableDesignation : string
+        /// Date of last observation included in orbit solution (YYYYMMDD)
+        LastOpposition : string }
+
+    let fromMpcOrbLine (line : string) =
+        let oppositions = line |> Column.asString 124 126 |> Convert.tryToInt
+        let range = line |> Observation.fromLine oppositions
+        { 
+            Designation =         line |> Column.asString      1   7
+            H =                   line |> Column.tryAsDouble   9  13
+            G =                   line |> Column.tryAsDouble  15  19
+            Epoch =               line |> Column.asString     21  25
+            M =                   line |> Column.tryAsDouble  27  35
+            Perihelion =          line |> Column.tryAsDouble  38  46
+            Node =                line |> Column.tryAsDouble  49  57
+            Inclination =         line |> Column.tryAsDouble  60  68
+            e =                   line |> Column.tryAsDouble  71  79
+            n =                   line |> Column.tryAsDouble  81  91
+            a =                   line |> Column.tryAsDouble  93 103
+            Uncertainty =         line |> Column.tryAsChar   106 106
+            Reference =           line |> Column.asString    108 116
+            Observations =        line |> Column.tryAsInt    118 122
+            Oppositions =         oppositions
+            Range =               range
+            RmsResidual =         line |> Column.tryAsDouble 138 141
+            PerturbersCoarse =    line |> Column.asString    143 145
+            PerturbersPrecise =   line |> Column.asString    147 149
+            ComputerName =        line |> Column.asString    151 160
+            Flags =               line |> Column.asCharArray 162 165
+            ReadableDesignation = line |> Column.asString    167 194
+            LastOpposition =      line |> Column.asString    195 202 
+        }
+
+#!markdown
+
+Listing 13-14. *Original code for creating minor planet instances*
+
+#!fsharp
+
+// See Listing 13-3
+
+#!markdown
+
+Listing 13-15. *Improved code for creating minor planet instances*
+
+#!fsharp
+
+module MinorPlanet =
+
+    type Body = {
+        /// Number or provisional designation (packed format)
+        Designation : string
+        /// Absolute magnitude
+        H : float option
+        /// Slope parameter
+        G : float option
+        /// Epoch in packed form
+        Epoch : string
+        /// Mean anomaly at the epoch (degrees)
+        M : float option
+        /// Argument of perihelion, J2000.0 (degrees)
+        Perihelion : float option
+        /// Longitude of the ascending node, J2000.0 (degrees)
+        Node : float option
+        /// Inclination to the ecliptic, J2000.0 (degrees)
+        Inclination : float option
+        /// Orbital eccentricity
+        e : float option
+        /// Mean daily motion (degrees per day)
+        n : float option
+        /// Semimajor axis (AU)
+        a : float option
+        /// Uncertainty parameter
+        Uncertainty : char option
+        /// Reference
+        Reference : string
+        /// Number of observations
+        Observations : int option
+        /// Number of oppositions
+        Oppositions : int option
+        /// Year of first and last observation,
+        /// or arc length in days.
+        Range : Observation.Range option
+        /// RMS residual (arcseconds)
+        RmsResidual : double option
+        /// Coarse indicator of perturbers
+        PerturbersCoarse : string
+        /// Precise indicator of perturbers
+        PerturbersPrecise : string
+        /// Computer name
+        ComputerName : string
+        /// Flags
+        Flags : char[]
+        /// Readable designation
+        ReadableDesignation : string
+        /// Date of last observation included in orbit solution (YYYYMMDD)
+        LastOpposition : string }
+
+    let fromMpcOrbLine (line : string) =
+        let oppositions = line |> Column.asString 124 126 |> Convert.tryToInt
+        let range = line |> Observation.fromLine oppositions
+        { 
+            Designation =         line |> Column.asString      1   7
+            H =                   line |> Column.tryAsDouble   9  13
+            G =                   line |> Column.tryAsDouble  15  19
+            Epoch =               line |> Column.asString     21  25
+            M =                   line |> Column.tryAsDouble  27  35
+            Perihelion =          line |> Column.tryAsDouble  38  46
+            Node =                line |> Column.tryAsDouble  49  57
+            Inclination =         line |> Column.tryAsDouble  60  68
+            e =                   line |> Column.tryAsDouble  71  79
+            n =                   line |> Column.tryAsDouble  81  91
+            a =                   line |> Column.tryAsDouble  93 103
+            Uncertainty =         line |> Column.tryAsChar   106 106
+            Reference =           line |> Column.asString    108 116
+            Observations =        line |> Column.tryAsInt    118 122
+            Oppositions =         oppositions
+            Range =               range
+            RmsResidual =         line |> Column.tryAsDouble 138 141
+            PerturbersCoarse =    line |> Column.asString    143 145
+            PerturbersPrecise =   line |> Column.asString    147 149
+            ComputerName =        line |> Column.asString    151 160
+            Flags =               line |> Column.asCharArray 162 165
+            ReadableDesignation = line |> Column.asString    167 194
+            LastOpposition =      line |> Column.asString    195 202
+        }
+
+    let private skipHeader (data : seq<string>) =
+        data
+        |> Seq.skipWhile (fun line ->
+            line.StartsWith("----------") |> not)
+        |> Seq.skip 1
+            
+    let fromMpcOrbData (data : seq<string>) =
+        data
+        |> skipHeader
+        |> Seq.filter (fun line -> line.Length > 0)
+        |> Seq.map fromMpcOrbLine
+
+#!markdown
+
+Listing 13-16. *Calling the revised code*
+
+#!fsharp
+
+open System.IO
+
+// Get data from: https://www.minorplanetcenter.net/iau/MPCORB/MPCORB.DAT
+
+// Brightest 10 minor planets (absolute magnitude)
+@"./MinorPlanets/MPCORB.DAT"
+|> File.ReadLines
+|> MinorPlanet.fromMpcOrbData
+|> Seq.sortBy (fun mp ->
+    mp.H |> Option.defaultValue Double.MaxValue)
+|> Seq.truncate 10
+|> Seq.iter (fun mp ->
+    printfn "Name: %s, Abs. magnitude: %0.2f"
+        mp.ReadableDesignation
+        (mp.H |> Option.defaultValue nan))
+
+#!markdown
+
+## Exercises
+
+#!markdown
+
+Exercise 13-1. *Making code readable*
+
+#!fsharp
+
+open System.IO
+open System.Text.RegularExpressions
+
+let find pattern dir =
+    let re = Regex(pattern)
+    Directory.EnumerateFiles
+                    (dir, "*.*", SearchOption.AllDirectories)
+    |> Seq.filter (fun path -> re.IsMatch(Path.GetFileName(path)))
+    |> Seq.map (fun path ->
+        FileInfo(path))
+    |> Seq.filter (fun fi ->
+                fi.Attributes.HasFlag(FileAttributes.ReadOnly))
+    |> Seq.map (fun fi -> fi.Name)
+
+find "[a-z]." @"c:\temp"    
+
+#!markdown
+
+## Exercise Solutions
+
+#!markdown
+
+Exercise 13-1. *Making code readable* (Solution)
+
+#!fsharp
+
+open System.IO
+open System.Text.RegularExpressions
+
+module FileSearch =
+
+    module private FileName =
+        let isMatch pattern =
+            let re = Regex(pattern)
+            fun (path : string) ->
+                let fileName = Path.GetFileName(path)
+                re.IsMatch(fileName)
+
+    module private FileAttributes =
+        let hasFlag flag filePath =
+            FileInfo(filePath)
+                .Attributes
+                .HasFlag(flag)
+
+    /// Search below path for files whose file names match the specified
+    /// regular expression, and which have the 'read only' attribute set.
+    let findReadOnly pattern dir =
+        Directory.EnumerateFiles(dir, "*.*", SearchOption.AllDirectories)
+        |> Seq.filter (FileName.isMatch pattern)
+        |> Seq.filter (FileAttributes.hasFlag FileAttributes.ReadOnly)
+
+find "[a-z]." @"c:\temp"  

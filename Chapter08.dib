@@ -1,0 +1,1079 @@
+#!markdown
+
+# Sample code for Chapter 2 of "Stylish F# 6" by Kit Eason
+
+#!markdown
+
+Listing 8-1. *Declaring a class*
+
+#!fsharp
+
+// Remove this line for use in a program (as opposed to a script or Notebook)
+// and add the Nuget package to your project instead.
+#r "nuget: SharpZipLib, 1.3.2"
+
+open System
+open System.IO
+open ICSharpCode.SharpZipLib
+
+/// Embodies a zipped tar stream to which string and stream entries
+/// can be added.
+type TGZipStream(zipLevel : int, textEncoding : Text.Encoding, outputStream : Stream) =
+    do raise (NotImplementedException())
+
+#!markdown
+
+Listing 8-2. *Adding a constructor body to a class*
+
+#!fsharp
+
+open System
+open System.IO
+open ICSharpCode.SharpZipLib
+
+/// Embodies a zipped tar stream to which string and stream entries can be added.
+type TGZipStream(zipLevel : int, textEncoding : Text.Encoding, outputStream : Stream) =
+
+    let gzipStream = new GZip.GZipOutputStream(outputStream, IsStreamOwner=false)
+    do gzipStream.SetLevel(zipLevel)
+    let tarStream = new Tar.TarOutputStream(gzipStream, textEncoding, IsStreamOwner=false)
+
+#!markdown
+
+Listing 8-3. *Adding a member to a class*
+
+#!fsharp
+
+open System
+open System.IO
+open ICSharpCode.SharpZipLib
+
+/// Embodies a zipped tar stream to which string and stream entries can be added.
+type TGZipStream(zipLevel : int, textEncoding : Text.Encoding, outputStream : Stream) =
+
+    let gzipStream = new GZip.GZipOutputStream(outputStream, IsStreamOwner=false)
+    do gzipStream.SetLevel(zipLevel)
+    let tarStream = new Tar.TarOutputStream(gzipStream, textEncoding, IsStreamOwner=false)
+
+    /// Adds the content stream to the archive, starting at position 0 of the content stream
+    /// and using the specified entry name.
+    member _.AddEntry(entryName : string, content : Stream) = 
+        content.Position <- 0L
+        let entry = Tar.TarEntry.CreateTarEntry(entryName, Size=content.Length)
+        tarStream.PutNextEntry(entry)
+        content.CopyTo(tarStream)
+        tarStream.CloseEntry()
+
+#!markdown
+
+Listing 8-4. *Adding an overloaded member to a class*
+
+#!fsharp
+
+open System
+open System.IO
+open ICSharpCode.SharpZipLib
+
+/// Embodies a zipped tar stream to which string and stream entries can be added.
+type TGZipStream(zipLevel : int, textEncoding : Text.Encoding, outputStream : Stream) =
+
+    let gzipStream = new GZip.GZipOutputStream(outputStream, IsStreamOwner=false)
+    do gzipStream.SetLevel(zipLevel)
+    let tarStream = new Tar.TarOutputStream(gzipStream, textEncoding, IsStreamOwner=false)
+
+    /// Adds the content stream to the archive, starting at position 0 of the content stream
+    /// and using the specified entry name.
+    member _.AddEntry(entryName : string, content : Stream) = 
+        content.Position <- 0L
+        let entry = Tar.TarEntry.CreateTarEntry(entryName, Size=content.Length)
+        tarStream.PutNextEntry(entry)
+        content.CopyTo(tarStream)
+        tarStream.CloseEntry()
+
+    /// Adds the content string to the archive using the specified entry name.
+    member this.AddEntry(entryName : string, content : string) = 
+        use memStream = new MemoryStream()
+        use memStreamWriter = new StreamWriter(memStream, AutoFlush=true)
+        memStreamWriter.Write(content)
+        this.AddEntry(entryName, memStream)
+
+#!markdown
+
+Listing 8-5. *Implementing the IDisposable interface*
+
+#!fsharp
+
+open System
+open System.IO
+open ICSharpCode.SharpZipLib
+
+/// Embodies a zipped tar stream to which string and stream entries can be added.
+type TGZipStream(zipLevel : int, textEncoding : Text.Encoding, outputStream : Stream) =
+
+    let gzipStream = new GZip.GZipOutputStream(outputStream, IsStreamOwner=false)
+    do gzipStream.SetLevel(zipLevel)
+    let tarStream = new Tar.TarOutputStream(gzipStream, textEncoding, IsStreamOwner=false)
+
+    /// Adds the content stream to the archive, starting at position 0 of the content stream
+    /// and using the specified entry name.
+    member _.AddEntry(entryName : string, content : Stream) = 
+        content.Position <- 0L
+        let entry = Tar.TarEntry.CreateTarEntry(entryName, Size=content.Length)
+        tarStream.PutNextEntry(entry)
+        content.CopyTo(tarStream)
+        tarStream.CloseEntry()
+
+    /// Adds the content string to the archive using the specified entry name.
+    member this.AddEntry(entryName : string, content : string) = 
+        use memStream = new MemoryStream()
+        use memStreamWriter = new StreamWriter(memStream, AutoFlush=true)
+        memStreamWriter.Write(content)
+        this.AddEntry(entryName, memStream)
+
+    interface IDisposable with
+        member this.Dispose() =
+            tarStream.Dispose()
+            gzipStream.Dispose()
+            outputStream.Position <- 0L
+
+#!markdown
+
+Listing 8-6. *Testing the TGZipStream class*
+
+#!fsharp
+
+open System
+open System.IO
+open ICSharpCode.SharpZipLib
+
+/// Embodies a zipped tar stream to which string and stream entries can be added.
+type TGZipStream(zipLevel : int, textEncoding : Text.Encoding, outputStream : Stream) =
+
+    let gzipStream = new GZip.GZipOutputStream(outputStream, IsStreamOwner=false)
+    do gzipStream.SetLevel(zipLevel)
+    let tarStream = 
+        new Tar.TarOutputStream(gzipStream, textEncoding, IsStreamOwner=false)
+
+    /// Adds the content stream to the archive, starting at position 0 of the content stream
+    /// and using the specified entry name.
+    member _.AddEntry(entryName : string, content : Stream) = 
+        content.Position <- 0L
+        let entry = Tar.TarEntry.CreateTarEntry(entryName, Size=content.Length)
+        tarStream.PutNextEntry(entry)
+        content.CopyTo(tarStream)
+        tarStream.CloseEntry()
+
+    /// Adds the content string to the archive using the specified entry name.
+    member this.AddEntry(entryName : string, content : string) = 
+        use memStream = new MemoryStream()
+        use memStreamWriter = new StreamWriter(memStream, AutoFlush=true)
+        memStreamWriter.Write(content)
+        this.AddEntry(entryName, memStream)
+
+    interface IDisposable with
+        member this.Dispose() =
+            tarStream.Dispose()
+            gzipStream.Dispose()
+            outputStream.Position <- 0L
+
+let gZipStreamDemo() =
+    // Change the path as appropriate.
+    use fileStream = new FileStream(@"d:\temp\gZipStreamDemo.tgz", IO.FileMode.Create)
+    use tgz = new TGZipStream(3, Text.Encoding.Default, fileStream)
+    let asciiCapitals = Array.init 26 (fun i -> i + 65 |> byte)
+    use bytesStream = new MemoryStream(asciiCapitals)
+
+    tgz.AddEntry("Bytes", bytesStream)
+    tgz.AddEntry("String", "Hello world")
+
+gZipStreamDemo()
+
+#!markdown
+
+Listing 8-7. *Utilizing a disposable type with using*
+
+#!fsharp
+
+let gZipStreamUsingDemo() =
+    // Change the path as appropriate.
+    use fileStream = new FileStream(@"d:\temp\gZipStreamUsingDemo.tgz", IO.FileMode.Create)
+    using (new TGZipStream(3, Text.Encoding.Default, fileStream)) (fun tgz ->
+        let asciiCapitals = Array.init 26 (fun i -> i + 65 |> byte)
+        let bytesStream = new MemoryStream(asciiCapitals)
+
+        tgz.AddEntry("Bytes", bytesStream)
+        tgz.AddEntry("String", "Hello world"))
+
+gZipStreamUsingDemo()
+
+#!markdown
+
+Listing 8-8. *Explicitly disposing a disposable object*
+
+#!fsharp
+
+let gZipStreamDisposalDemo() =
+    // Change the path as appropriate.
+    use fileStream = new FileStream(@"d:\temp\gZipStreamDisposalDemo.tgz", IO.FileMode.Create)
+    let tgz = new TGZipStream(3, Text.Encoding.Default, fileStream)
+    let asciiCapitals = Array.init 26 (fun i -> i + 65 |> byte)
+    use bytesStream = new MemoryStream(asciiCapitals)
+
+    tgz.AddEntry("Bytes", bytesStream)
+    tgz.AddEntry("String", "Hello world")
+
+    (tgz :> IDisposable).Dispose()
+
+    // Error: ICSharpCode.SharpZipLib.Tar.TarException: TarBuffer.WriteBlock - no output stream defined
+    //tgz.AddEntry("Boom", "Boom")    
+
+gZipStreamDisposalDemo()
+
+#!markdown
+
+Listing 8-9. *An additional constructor*
+
+#!fsharp
+
+open System.IO
+open ICSharpCode.SharpZipLib
+
+/// Embodies a zipped tar stream to which string and stream entries can be added.
+type TGZipStream(zipLevel : int, textEncoding : Text.Encoding, outputStream : Stream) =
+
+    let gzipStream = new GZip.GZipOutputStream(outputStream, IsStreamOwner=false)
+    do gzipStream.SetLevel(zipLevel)
+    let tarStream = new Tar.TarOutputStream(gzipStream, textEncoding, IsStreamOwner=false)
+
+    /// Instantiates TGZipStream with a Zip level of 3 and a text encoding of Encoding.Default.
+    new(outputStream : Stream) =
+        new TGZipStream(3, Text.Encoding.Default, outputStream)        
+
+    /// Adds the content stream to the archive, starting at position 0 of the content stream
+    /// and using the specified entry name.
+    member _.AddEntry(entryName : string, content : Stream) = 
+        content.Position <- 0L
+        let entry = Tar.TarEntry.CreateTarEntry(entryName, Size=content.Length)
+        tarStream.PutNextEntry(entry)
+        content.CopyTo(tarStream)
+        tarStream.CloseEntry()
+
+    /// Adds the content string to the archive using the specified entry name.
+    member this.AddEntry(entryName : string, content : string) = 
+        use memStream = new MemoryStream()
+        use memStreamWriter = new StreamWriter(memStream, AutoFlush=true)
+        memStreamWriter.Write(content)
+        this.AddEntry(entryName, memStream)
+
+    interface IDisposable with
+        member this.Dispose() =
+            tarStream.Dispose()
+            gzipStream.Dispose()
+            outputStream.Position <- 0L
+
+let gZipStreamAdditionalConstructorDemo() =
+    // Change the path as appropriate.
+    use fileStream = new FileStream(@"d:\temp\gZipStreamAdditionalConstructorDemo.tgz", IO.FileMode.Create)
+    use tgz = new TGZipStream(fileStream)
+    let asciiCapitals = Array.init 26 (fun i -> i + 65 |> byte)
+    use bytesStream = new MemoryStream(asciiCapitals)
+
+    tgz.AddEntry("Bytes", bytesStream)
+    tgz.AddEntry("String", "Hello world")
+
+gZipStreamAdditionalConstructorDemo()            
+
+#!markdown
+
+Listing 8-10. *Exposing read-only internal values as members*
+
+#!fsharp
+
+open System.IO
+open ICSharpCode.SharpZipLib
+
+/// Embodies a zipped tar stream to which string and stream entries can be added.
+type TGZipStream(zipLevel : int, textEncoding : Text.Encoding, outputStream : Stream) =
+
+    let gzipStream = new GZip.GZipOutputStream(outputStream, IsStreamOwner=false)
+    do gzipStream.SetLevel(zipLevel)
+    let tarStream = new Tar.TarOutputStream(gzipStream, textEncoding, IsStreamOwner=false)
+
+    /// Instantiates TGZipStream with a Zip level of 3 and a text encoding of Encoding.Default.
+    new(outputStream : Stream) =
+        new TGZipStream(3, Text.Encoding.Default, outputStream)        
+
+    /// Adds the content stream to the archive, starting at position 0 of the content stream
+    /// and using the specified entry name.
+    member _.AddEntry(entryName : string, content : Stream) = 
+        content.Position <- 0L
+        let entry = Tar.TarEntry.CreateTarEntry(entryName, Size=content.Length)
+        tarStream.PutNextEntry(entry)
+        content.CopyTo(tarStream)
+        tarStream.CloseEntry()
+
+    /// Adds the content string to the archive using the specified entry name.
+    member this.AddEntry(entryName : string, content : string) = 
+        use memStream = new MemoryStream()
+        use memStreamWriter = new StreamWriter(memStream, AutoFlush=true)
+        memStreamWriter.Write(content)
+        this.AddEntry(entryName, memStream)
+
+    member val ZipLevel = zipLevel
+    member val TextEncoding = textEncoding
+
+    interface IDisposable with
+        member this.Dispose() =
+            tarStream.Dispose()
+            gzipStream.Dispose()
+            outputStream.Position <- 0L
+
+let gZipStreamMemberDemo() =
+    // Change the path as appropriate.
+    use fileStream = new FileStream(@"d:\temp\gZipStreamMemberDemo.tgz", IO.FileMode.Create)
+    use tgz = new TGZipStream(3, Text.Encoding.Default, fileStream)
+    // "Created tgz with zip level: 3, encoding: Unicode (UTF-8)"
+    printfn "Created %s with zip level: %i, encoding: %s" (nameof tgz) tgz.ZipLevel tgz.TextEncoding.EncodingName
+
+gZipStreamMemberDemo()
+
+#!markdown
+
+Listing 8-11. *A simple turtle*
+
+#!fsharp
+
+open System
+
+type Turtle(x : float, y : float) =
+    member val X = x
+        with get, set
+    member val Y = y
+        with get, set
+    member val HeadingRadians = 0.
+        with get, set
+    member this.Walk(distance : float) =
+        this.X <- this.X + (distance * Math.Sin(this.HeadingRadians))
+        this.Y <- this.Y + (distance * Math.Cos(this.HeadingRadians))
+
+let degreesToRadians d =
+    d * Math.PI / 180.0
+
+let turtleDemo() =
+    let turtle = Turtle(0., 0.)
+    turtle.HeadingRadians <- 90.0 |> degreesToRadians
+    turtle.Walk(10.)
+    turtle.HeadingRadians <- 180.0  |> degreesToRadians
+    turtle.Walk(10.)
+    printfn "Position now: %0.3f, %0.3f. Heading: %0.3f radians" turtle.X turtle.Y turtle.HeadingRadians
+
+// Position now: 10.000, -10.000, Heading: 3.142 radians
+turtleDemo()
+
+#!markdown
+
+Listing 8-12. *Getters and setters with bodies*
+
+#!fsharp
+
+open System
+
+type Turtle(x : float, y : float) =
+    let mutable headingRadians = 0.
+    let radiansPerDegree = Math.PI / 180.
+    member val X = x
+        with get, set
+    member val Y = y
+        with get, set
+    member _.HeadingDegrees
+        with get() = 
+            headingRadians / radiansPerDegree
+        and set(degrees : float) = 
+            headingRadians <- degrees * radiansPerDegree
+    member this.Walk(distance : float) =
+        this.X <- this.X + (distance * Math.Sin(headingRadians))
+        this.Y <- this.Y + (distance * Math.Cos(headingRadians))
+
+let turtleDemo() =
+    let turtle = Turtle(0., 0.)
+    turtle.HeadingDegrees <- 90.0 
+    turtle.Walk(10.)
+    turtle.HeadingDegrees <- 180.0
+    turtle.Walk(10.)
+    printfn "Position now: %0.3f, %0.3f. Heading: %0.3f degrees" turtle.X turtle.Y turtle.HeadingDegrees
+
+// Position now: 10.000, -10.000, Heading: 180 degrees
+turtleDemo()
+
+#!markdown
+
+Listing 8-13. *Alternative construction styles*
+
+#!fsharp
+
+// Unnamed arguments:
+let turtle1 = Turtle(1.2, 3.4)
+
+// Named arguments:
+let turtle2 = Turtle(x=1.2, y=3.4)
+let turtle2b = Turtle(y=3.4, x=1.2)
+
+// Object initialization syntax:
+let turtle3 = Turtle(1.2, 3.4, HeadingDegrees=180.0)
+
+// Named arguments and object initialization syntax:
+let turtle4 = Turtle(x=1.2, y=3.4, HeadingDegrees=180.0)
+
+turtle1, turtle2, turtle3, turtle4
+
+#!markdown
+
+Listing 8-14. *A ring buffer implementation*
+
+#!fsharp
+
+type RingBuffer<'T>(items : 'T seq) =
+    let _items = items |> Array.ofSeq
+    let length = _items.Length
+    member _.Item i =
+        _items.[i % length]
+
+let fruits = RingBuffer(["Apple"; "Orange"; "Pear"])
+// Apple Orange Pear Apple Orange Pear Apple Orange
+for i in 0..7 do
+    printfn "%s" fruits.[i]
+// Invalid assignment
+// fruits.[4] <- "Grape"
+
+#!markdown
+
+Listing 8-15. *Settable indexed properties*
+
+#!fsharp
+
+type RingBuffer<'T>(items : 'T seq) =
+    let _items = items |> Array.ofSeq
+    let length = _items.Length
+    member _.Item
+        with get(i) =
+            _items.[i % length]
+        and set i value =
+            _items.[i % length] <- value
+
+let fruits = RingBuffer(["Apple"; "Orange"; "Pear"])
+fruits.[4] <- "Grape"
+// Apple Grape Pear Apple Grape Pear Apple Grape
+for i in 0..7 do
+    printfn "%s" fruits.[i]
+
+#!markdown
+
+Listing 8-16. *A two-dimensional ring buffer*
+
+#!fsharp
+
+type RingBuffer2D<'T>(items : 'T[,]) =
+    let leni = items.GetLength(0)
+    let lenj = items.GetLength(1)
+    let _items = Array2D.copy items
+    member _.Item
+        with get(i, j) =
+            _items.[i % leni, j % lenj]
+        and set (i, j) value =
+            _items.[i % leni, j % lenj] <- value
+
+let numbers = Array2D.init 4 5 (fun x y -> x * y)
+let numberRing = RingBuffer2D(numbers)
+// 0 0 -> 0
+// 0 1 -> 0
+// ...
+// 1 1 -> 1
+// 1 2 -> 2
+// ..
+// 9 8 -> 3
+// 9 9 -> 4
+for i in 0..9 do
+    for j in 0..9 do
+        printfn "%i %i -> %A" i j (numberRing.[i,j])
+
+#!markdown
+
+Listing 8-17. *Simple interface definition for a media player*
+
+#!fsharp
+
+type MediaId = string
+
+type TimeStamp = int
+
+type Status =
+    | Empty
+    | Playing of mediaId : MediaId * timeStamp : TimeStamp
+    | Stopped of mediaId : MediaId
+
+type IMediaPlayer =
+    abstract member Open : mediaId : MediaId -> unit
+    abstract member Play : unit -> unit
+    abstract member Stop : unit -> unit
+    abstract member Eject : unit -> unit
+    abstract member Status : unit -> Status
+
+#!markdown
+
+Listing 8-18. *Implementing an Interface*
+
+#!fsharp
+
+type DummyPlayer() =
+    let mutable status = Empty
+
+    interface IMediaPlayer with
+
+        member _.Open(mediaId : MediaId) =
+            printfn "Opening '%s'" mediaId
+            status <- Stopped mediaId
+
+        member _.Play() =
+            match status with
+            | Empty
+            | Playing(_, _) -> ()
+            | Stopped(mediaId) ->
+                printfn "Playing '%s'" mediaId
+                status <- Playing(mediaId, 0)
+
+        member _.Stop() =
+            match status with
+            | Empty
+            | Stopped(_) -> ()
+            | Playing(mediaId, _) ->
+                printfn "Stopping '%s'" mediaId
+                status <- Stopped(mediaId)
+
+        member _.Eject() =
+            match status with
+            | Empty -> ()
+            | Stopped(_)
+            | Playing(_, _) ->
+                printfn "Ejecting"
+                status <- Empty
+
+        member _.Status() =
+            status
+
+#!markdown
+
+Listing 8-19. *Accessing interface members*
+
+#!fsharp
+
+let player = new DummyPlayer() :> IMediaPlayer
+// "Opening 'Dreamer'"
+player.Open("Dreamer")
+// "Playing 'Dreamer'"
+player.Play()
+// "Ejecting"
+player.Eject()
+// "Empty"
+player.Status() |> printfn "%A"
+
+#!markdown
+
+Listing 8-20. *Accessing instance and interface members*
+
+#!fsharp
+
+open System
+open System.IO
+
+type DummyPlayer() =
+    let uniqueId = Guid.NewGuid()
+    let mutable status = Empty
+    let stream = new MemoryStream()
+
+    member __.UniqueId =
+        uniqueId
+
+    interface IMediaPlayer with
+
+        member _.Open(mediaId : MediaId) =
+            printfn "Opening '%s'" mediaId
+            status <- Stopped mediaId
+
+        member _.Play() =
+            match status with
+            | Empty
+            | Playing(_, _) -> ()
+            | Stopped(mediaId) ->
+                printfn "Playing '%s'" mediaId
+                status <- Playing(mediaId, 0)
+
+        member _.Stop() =
+            match status with
+            | Empty
+            | Stopped(_) -> ()
+            | Playing(mediaId, _) ->
+                printfn "Stopping '%s'" mediaId
+                status <- Stopped(mediaId)
+
+        member _.Eject() =
+            match status with
+            | Empty -> ()
+            | Stopped(_)
+            | Playing(_, _) ->
+                printfn "Ejecting"
+                status <- Empty
+
+        member _.Status() =
+            status
+
+    interface IDisposable with
+        member _.Dispose() =
+            stream.Dispose()
+
+let player = new DummyPlayer()
+
+(player :> IMediaPlayer).Open("Dreamer")
+// 95cf8c51-ee29-4c99-b714-adbe1647b62c
+printfn "%A" player.UniqueId
+(player :> IDisposable).Dispose()
+
+#!markdown
+
+Listing 8-21. *Using Object Expressions*
+
+#!fsharp
+
+type ILogger =
+    abstract member Info : string -> unit
+    abstract member Error : string -> unit
+
+type LoggingPlayer(logger : ILogger) =
+    let mutable status = Empty
+    interface IMediaPlayer with
+        member _.Open(mediaId : MediaId) =
+            logger.Info(sprintf "Opening '%s'" mediaId)
+            status <- Stopped mediaId
+        member _.Play() =
+            match status with
+            | Empty ->
+                logger.Error("Nothing to play")
+            | Playing(_, _) ->
+                logger.Error("Already playing")
+            | Stopped(mediaId) ->
+                logger.Info(sprintf "Playing '%s'" mediaId)
+                status <- Playing(mediaId, 0)
+        member _.Stop() =
+            match status with
+            | Empty
+            | Stopped(_) ->
+                logger.Error("Not playing")
+            | Playing(mediaId, _) ->
+                logger.Info(sprintf "Playing '%s'" mediaId)
+                status <- Stopped(mediaId)
+        member _.Eject() =
+            match status with
+            | Empty ->
+                logger.Error("Nothing to eject")
+            | Stopped(_)
+            | Playing(_, _) ->
+                logger.Info("Ejecting")
+                status <- Empty
+        member _.Status() =
+            status
+
+let logger = {
+    new ILogger with
+        member _.Info(msg) = printfn "%s" msg
+        member _.Error(msg) = printfn "%s" msg }
+        
+let player = new LoggingPlayer(logger) :> IMediaPlayer
+// "Nothing to eject"
+player.Eject()
+// "Opening 'Dreamer'"
+player.Open("Dreamer")
+// "Ejecting"
+player.Eject()
+
+#!markdown
+
+Listing 8-22. *A simple abstract class*
+
+#!fsharp
+
+[<AbstractClass>]
+type AbstractClass() =
+    abstract member SaySomething : string -> string
+
+type ConcreteClass(name : string) =
+    inherit AbstractClass()
+    override _.SaySomething(whatToSay) =
+        sprintf "%s says %s" name whatToSay
+
+let cc = ConcreteClass("Concrete")
+// "Concrete says hello"
+cc.SaySomething("hello")
+
+#!markdown
+
+Listing 8-23. *Default abstract member implementation*
+
+#!fsharp
+
+type ParentClass() =
+    abstract member SaySomething : string -> string
+    default __.SaySomething(whatToSay) =
+        sprintf "Parent says %s" whatToSay
+
+type ConcreteClass1(name : string) =
+    inherit ParentClass()
+
+type ConcreteClass2(name : string) =
+    inherit ParentClass()
+    override _.SaySomething(whatToSay) =
+        sprintf "%s says %s" name whatToSay
+
+let cc1 = ConcreteClass1("Concrete 1")
+let cc2 = ConcreteClass2("Concrete 2")
+// "Parent says hello"
+printfn "%s" (cc1.SaySomething("hello"))
+// "Concrete 2 says hello"
+printfn "%s" (cc2.SaySomething("hello"))
+
+#!markdown
+
+Listing 8-24. *Two identical geographical positions might be “unequal”*
+
+#!fsharp
+
+type LatLon(latitude : float, longitude : float) =
+    member val Latitude = latitude
+    member val Longitude = longitude
+
+let landsEnd = LatLon(50.07, -5.72)
+let johnOGroats = LatLon(58.64, -3.07)
+let landsEnd2 = LatLon(50.07, -5.72)
+
+// false
+printfn "%b" (landsEnd = johnOGroats)
+// false
+printfn "%b" (landsEnd = landsEnd2)
+
+#!markdown
+
+Listing 8-25. *Just implementing IEquatable isn’t enough*
+
+#!fsharp
+
+open System
+
+type LatLon(latitude : float, longitude : float) =
+    member val Latitude = latitude
+    member val Longitude = longitude
+    interface IEquatable<LatLon> with
+        member this.Equals(that : LatLon) =
+            this.Latitude = that.Latitude
+            && this.Longitude = that.Longitude
+
+let landsEnd = LatLon(50.07, -5.72)
+let johnOGroats = LatLon(58.64, -3.07)
+let landsEnd2 = LatLon(50.07, -5.72)
+
+// false
+printfn "%b" (landsEnd = johnOGroats)
+// false
+printfn "%b" (landsEnd = landsEnd2)
+
+#!markdown
+
+Listing 8-26. *Overriding Object.Equals*
+
+#!fsharp
+
+open System
+
+[<AllowNullLiteral>]
+type LatLon(latitude : float, longitude : float) =
+    let eq (that : LatLon) =
+        if isNull that then
+            false
+        else
+            latitude = that.Latitude
+            && longitude = that.Longitude
+    member val Latitude = latitude
+    member val Longitude = longitude
+    override this.GetHashCode() =
+        hash (this.Latitude, this.Longitude)
+    override _.Equals(thatObj) =
+        match thatObj with
+        | :? LatLon as that ->
+            eq that
+        | _ ->
+            false
+    interface IEquatable<LatLon> with
+        member _.Equals(that : LatLon) =
+            eq that
+
+#!markdown
+
+Listing 8-27. *Exercising equality*
+
+#!fsharp
+
+let landsEnd = LatLon(50.07, -5.72)
+let johnOGroats = LatLon(58.64, -3.07)
+let landsEnd2 = LatLon(50.07, -5.72)
+
+// false
+printfn "%b" (landsEnd = johnOGroats)
+// true
+printfn "%b" (landsEnd = landsEnd2)
+
+let places = [ landsEnd; johnOGroats; landsEnd2 ]
+let placeDict =
+    places
+    |> Seq.mapi (fun i place -> place, i)
+    |> dict
+// 50.070000, -5.720000 -> 2
+// 58.640000, -3.070000 -> 1
+
+placeDict
+|> Seq.iter (fun kvp ->
+    printfn "%f, %f -> %i"
+        kvp.Key.Latitude kvp.Key.Longitude kvp.Value)
+
+#!markdown
+
+Listing 8-28. *Overriding op_Equality*
+
+#!fsharp
+
+open System
+
+[<AllowNullLiteral>]
+type LatLon(latitude : float, longitude : float) =
+    let eq (that : LatLon) =
+        if isNull that then
+            false
+        else
+            latitude = that.Latitude
+            && longitude = that.Longitude
+    member val Latitude = latitude
+    member val Longitude = longitude
+    // static member ( = ) : this:LatLon * that:LatLon -> bool
+    static member op_Equality(this : LatLon, that : LatLon) =
+        this.Equals(that)
+    override this.GetHashCode() =
+        hash (this.Latitude, this.Longitude)
+    override _.Equals(thatObj) =
+        match thatObj with
+        | :? LatLon as that ->
+            eq that
+        | _ ->
+            false
+    interface IEquatable<LatLon> with
+        member _.Equals(that : LatLon) =
+            eq that
+
+#!markdown
+
+Listing 8-29. *Implementing IComparable*
+
+#!fsharp
+
+open System
+
+[<AllowNullLiteral>]
+type LatLon(latitude : float, longitude : float) =
+    let eq (that : LatLon) =
+        if isNull that then
+            false
+        else
+            latitude = that.Latitude
+            && longitude = that.Longitude
+    member val Latitude = latitude
+    member val Longitude = longitude
+    // static member ( = ) : this:LatLon * that:LatLon -> bool
+    static member op_Equality(this : LatLon, that : LatLon) =
+        this.Equals(that)
+    override this.GetHashCode() =
+        hash (this.Latitude, this.Longitude)
+    override _.Equals(thatObj) =
+        match thatObj with
+        | :? LatLon as that ->
+            eq that
+        | _ ->
+            false
+    interface IEquatable<LatLon> with
+        member _.Equals(that : LatLon) =
+            eq that
+    interface IComparable with
+        member this.CompareTo(thatObj) =
+            match thatObj with
+            | :? LatLon as that ->
+                compare
+                    (this.Latitude, this.Longitude)
+                    (that.Latitude, that.Longitude)
+            | _ ->
+                raise <| ArgumentException("Can't compare different types")
+
+#!markdown
+
+Listing 8-30. *Using class instances that implement IComparable*
+
+#!fsharp
+
+let landsEnd = LatLon(50.07, -5.72)
+let johnOGroats = LatLon(58.64, -3.07)
+let landsEnd2 = LatLon(50.07, -5.72)
+
+let places = [ landsEnd; johnOGroats; landsEnd2 ]
+// 50.070000, -5.720000
+// 58.640000, -3.070000
+places
+|> Set.ofList
+|> Seq.iter (fun ll -> printfn "%f, %f" ll.Latitude ll.Longitude)
+
+#!markdown
+
+Listing 8-31. *Adding a generic version of IComparable*
+
+#!fsharp
+
+open System
+
+[<AllowNullLiteral>]
+type LatLon(latitude : float, longitude : float) =
+    let eq (that : LatLon) =
+        if isNull that then
+            false
+        else
+            latitude = that.Latitude
+            && longitude = that.Longitude
+    let comp (that : LatLon) =
+        compare
+            (latitude, longitude)
+            (that.Latitude, that.Longitude)
+    member val Latitude = latitude
+    member val Longitude = longitude
+    static member op_Equality(this : LatLon, that : LatLon) =
+        this.Equals(that)
+    override this.GetHashCode() =
+        hash (this.Latitude, this.Longitude)
+    override __.Equals(thatObj) =
+        match thatObj with
+        | :? LatLon as that ->
+            eq that
+        | _ ->
+            false
+    interface IEquatable<LatLon> with
+        member _.Equals(that : LatLon) =
+            eq that
+    interface IComparable with
+        member _.CompareTo(thatObj) =
+            match thatObj with
+            | :? LatLon as that ->
+                comp that
+            | _ ->
+                raise <| ArgumentException("Can't compare different types")
+    interface IComparable<LatLon> with
+        member _.CompareTo(that) =
+            comp that
+
+#!markdown
+
+## Exercise Solutions
+
+#!markdown
+
+Exercise 8-1. *A simple class* (Solution)
+
+#!fsharp
+
+type GrayScale(r : byte, g : byte, b : byte) =
+    member _.Level =
+        (int r + int g + int b) / 3 |> byte
+
+// 127
+GrayScale(255uy, 128uy, 0uy).Level
+
+#!markdown
+
+Exercise 8-2. *Secondary constructors* (Solution)
+
+#!fsharp
+
+open System.Drawing
+
+type GrayScale(r : byte, g : byte, b : byte) =
+    new (color : Color) =
+        GrayScale(color.R, color.G, color.B)
+    member _.Level =
+        (int r + int g + int b) / 3 |> byte
+
+// 83
+GrayScale(Color.Brown).Level
+
+#!markdown
+
+Exercise 8-3. *Overrides* (Solution)
+
+#!fsharp
+
+open System.Drawing
+
+type GrayScale(r : byte, g : byte, b : byte) =
+    new (color : Color) =
+        GrayScale(color.R, color.G, color.B)
+    member _.Level =
+        (int r + int g + int b) / 3 |> byte
+    override this.ToString() =
+        sprintf "GrayScale(%i)" this.Level
+
+// GrayScale(140)
+GrayScale(Color.Orange) |> printfn "%A"
+// GrayScale(255)
+GrayScale(255uy, 255uy, 255uy) |> printfn "%A"
+
+#!markdown
+
+Exercise 8-4. *Equality* (Solution)
+
+#!fsharp
+
+open System
+
+open System.Drawing
+
+type GrayScale(r : byte, g : byte, b : byte) =
+    let level = (int r + int g + int b) / 3 |> byte
+    let eq (that : GrayScale) =
+        level = that.Level
+    new (color : Color) =
+        GrayScale(color.R, color.G, color.B)
+    member _.Level =
+        level
+    override this.ToString() =
+        sprintf "GrayScale(%i)" this.Level
+    override this.GetHashCode() =
+        hash level
+    override _.Equals(thatObj) =
+        match thatObj with
+        | :? GrayScale as that ->
+            eq that
+        | _ ->
+            false
+    interface IEquatable<GrayScale> with
+        member _.Equals(that : GrayScale) =
+            eq that
+            
+let orange1 = GrayScale(Color.Orange)
+let blue = GrayScale(Color.Blue)
+let orange2 = GrayScale(0xFFuy, 0xA5uy, 0x00uy)
+let orange3 = GrayScale(0xFFuy, 0xA5uy, 0x01uy)
+
+// true
+printfn "%b" (orange1 = orange2)
+// false
+printfn "%b" (orange1 = blue)
+// true
+printfn "%b" (orange1 = orange3)

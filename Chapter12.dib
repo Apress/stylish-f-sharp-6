@@ -1,0 +1,157 @@
+#!markdown
+
+# Sample code for Chapter 12 of "Stylish F# 6" by Kit Eason
+
+#!markdown
+
+Most of the code for this chapter is in a directory called "Chapter12". This notebook contains only exercises.
+
+#!markdown
+
+## Exercises
+
+#!markdown
+
+Exercise 12-1. *Concatenating lists*
+
+#!fsharp
+
+type Transaction = { Id : int } // Would contain more fields in reality
+
+let addTransactions
+    (oldTransactions : Transaction list)
+    (newTransactions : Transaction list) =
+    oldTransactions @ newTransactions
+
+let transactions1 = List.init 10_000_000 (fun i -> { Id = i})
+let transactions2 = List.init 10_000_000 (fun i -> { Id = i+1_000_000})
+
+let stopwatch = System.Diagnostics.Stopwatch.StartNew()
+let allTransactions = addTransactions transactions1 transactions2
+sprintf "That took %ims" stopwatch.ElapsedMilliseconds
+
+#!markdown
+
+Exercise 12-2. *Speeding up filtering*
+
+#!fsharp
+
+type Float3 = (float * float * float)
+
+let withinRadius (radius : float) (here : Float3) (coords : Float3[]) =
+    let distance x1 y1 z1 x2 y2 z2 =
+        let dx = x1 - x2
+        let dy = y1 - y2
+        let dz = z1 - z2
+        dx * dx +
+        dy * dy +
+        dz * dz
+        |> sqrt
+
+    let x1, y1, z1 = here
+
+    coords
+    // Original code:
+    // |> Array.filter (fun (x2, y2, z2) ->
+    //    distance x1 y1 z1 x2 y2 z2 <= radius)
+    |> Array.Parallel.map (fun (x2, y2, z2) ->
+        distance x1 y1 z1 x2 y2 z2)
+    |> Array.filter (fun d -> d <= radius)
+
+let r = Random(1)
+let coords =
+    Array.init 1_000_000 (fun _ ->
+        r.NextDouble(), r.NextDouble(), r.NextDouble())
+let here = (0., 0., 0.)
+
+let stopwatch = System.Diagnostics.Stopwatch.StartNew()
+
+let result =
+    coords
+    |> withinRadius 0.1 here
+
+sprintf "That took %ims" stopwatch.ElapsedMilliseconds
+
+#!markdown
+
+Exercise 12-3. *Changing the approach to CSV generation*
+
+#!fsharp
+
+let buildLine (data : float[]) =
+    let cols = data |> Array.Parallel.map (sprintf "%f")
+    String.Join(',', cols)
+    
+let buildCsv (data : float[,]) =
+    let sb = StringBuilder()
+    for r in 0..(data |> Array2D.length1) - 1 do
+        let row = data.[r, *]
+        let rowString = row |> buildLine
+        sb.AppendLine(rowString) |> ignore
+    sb.ToString()
+
+let data =
+    Array2D.init 500 500 (fun x y ->
+        x * y |> float)
+
+let stopwatch = System.Diagnostics.Stopwatch.StartNew()
+
+let csv =
+    data
+    |> buildCsv
+    |> ignore
+
+sprintf "That took %ims" stopwatch.ElapsedMilliseconds
+
+#!markdown
+
+## Exercise Solutions
+
+#!markdown
+
+Exercise 12-1. *Concatenating lists* (Solution)
+
+#!fsharp
+
+type Transaction = { Id : int } // Would contain more fields in reality
+
+let addTransactions
+    (oldTransactions : Transaction[])
+    (newTransactions : Transaction[]) =
+    Array.append oldTransactions newTransactions
+
+let transactions1 = Array.init 10_000_000 (fun i -> { Id = i})
+let transactions2 = Array.init 10_000_000 (fun i -> { Id = i+1_000_000})
+
+let stopwatch = System.Diagnostics.Stopwatch.StartNew()
+let allTransactions = addTransactions transactions1 transactions2
+sprintf "That took %ims" stopwatch.ElapsedMilliseconds
+
+#!markdown
+
+Exercise 12-3. *Changing the approach to CSV generation* (Solution)
+
+#!fsharp
+
+open System.Text
+
+let buildCsv (data : float[,]) =
+    let dataStrings =
+        data |> Array2D.map (sprintf "%f")
+    let sb = StringBuilder()
+    for cols in 0..(dataStrings |> Array2D.length1) - 1 do
+        sb.AppendLine(String.Join(',', cols)) |> ignore
+    sb.ToString()
+
+let data =
+    Array2D.init 500 500 (fun x y ->
+        x * y |> float)
+
+let stopwatch = System.Diagnostics.Stopwatch.StartNew()
+
+let csv =
+    data
+    |> buildCsv
+    |> ignore
+
+sprintf "That took %ims" stopwatch.ElapsedMilliseconds

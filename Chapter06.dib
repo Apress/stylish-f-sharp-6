@@ -1,0 +1,1068 @@
+#!markdown
+
+# Sample code for Chapter 6 of "Stylish F# 6" by Kit Eason
+
+#!markdown
+
+Listing 6-1. *Case switching in C#*
+
+#!csharp
+
+int caseSwitch = 1;
+
+switch (caseSwitch)
+{
+    case 1:
+        Console.WriteLine("Case 1");
+        break;
+    case 2:
+        Console.WriteLine("Case 2");
+        break;
+    default:
+        Console.WriteLine("Default case");
+        break;
+}
+
+#!markdown
+
+Listing 6-2. *Case switching in F#*
+
+#!fsharp
+
+let caseSwitch = 2
+
+match caseSwitch with
+| 1 -> printfn "Case 1"
+| 2 -> printfn "Case 2"
+| _ -> printfn "Default case"
+
+#!markdown
+
+Listing 6-3. *Handling multiple match cases*
+
+#!fsharp
+
+let caseSwitch = 3
+
+// "Maybe 3, maybe 4"
+match caseSwitch with
+| 1 -> printfn "Case 1"
+| 2 -> printfn "Case 2"
+| 3
+| 4 -> printfn "Maybe 3, maybe 4"
+| _ -> printfn "Default case"
+
+#!markdown
+
+Listing 6-4. *Recovering a matched value*
+
+#!fsharp
+
+let caseSwitch = 3
+
+// "Maybe 3, maybe 4. But actually 3."
+match caseSwitch with
+| 1 ->
+    printfn "Case 1"
+| 2 ->
+    printfn "Case 2"
+| 3 | 4 as x ->
+    printfn "Maybe 3, maybe 4. But actually %i." x
+| _ ->
+    printfn "Default case"
+
+#!markdown
+
+Listing 6-5. *Matching with a when guard*
+
+#!fsharp
+
+let caseSwitch = 11
+
+// "Less than a dozen"
+match caseSwitch with
+| 1 ->
+    printfn "One"
+| 2 ->
+    printfn "A couple"
+| x when x < 12 ->
+    printfn "Less than a dozen"
+| x when x = 12 ->
+    printfn "A dozen"
+| _ ->
+    printfn "More than a dozen"
+
+#!markdown
+
+Listing 6-6. *Pattern matching on arrays*
+
+#!fsharp
+
+let arr0 = [||]
+let arr1 = [|"One fish"|]
+let arr2 = [|"One fish"; "Two fish"|]
+let arr3 = [|"One fish"; "Two fish"; "Red fish"|]
+let arr4 = [|"One fish"; "Two fish"; "Red fish"; "Blue fish"|]
+
+module Pond = 
+
+    let describe (a : string[]) =
+        match a with
+        | [||] ->
+            "An empty pond"
+        | [| fish |] ->
+            sprintf "A pond containing one fish: %s" fish
+        | [| f1; f2 |] ->
+            sprintf "A pond containing two fish: %s and %s" f1 f2
+        | _ ->
+            "Too many fish to list!"
+
+// An empty pond
+// A pond containing one fish: One fish
+// A pond containing two fish: One fish and Two fish
+// Too many fish to list!
+// Too many fish to list!
+[| arr0; arr1; arr2; arr3; arr4 |]
+|> Array.map Pond.describe
+
+#!markdown
+
+Listing 6-7. *Pattern matching on lists*
+
+#!fsharp
+
+let list0 = []
+let list1 = ["One fish"]
+let list2 = ["One fish"; "Two fish"]
+let list3 = ["One fish"; "Two fish"; "Red fish"]
+let list4 = ["One fish"; "Two fish"; "Red fish"; "Blue fish"]
+
+module Pond = 
+
+    let describe (a : List<string>) =
+        match a with
+        | [] ->
+            "An empty pond"
+        | [ fish ] ->
+            sprintf "A pond containing one fish only: %s" fish
+        | head::tail ->
+            sprintf "A pond containing one fish: %s (and %i more fish)"
+                head (tail |> List.length)
+
+// A pond containing one fish only: One fish
+// A pond containing one fish: One fish (and 1 more fish)
+// A pond containing one fish: One fish (and 2 more fish)
+// A pond containing one fish: One fish (and 3 more fish)
+[| list1; list2; list3; list4 |]
+|> Array.map Pond.describe                
+
+#!markdown
+
+Listing 6-8. *Pattern matching on tuples in a let binding*
+
+#!fsharp
+
+let extremes (s : seq<_>) =
+    s |> Seq.min,
+    s |> Seq.max
+    
+// lowest : int = -1
+// highest : int = 9
+let lowest, highest =
+    [1; 2; 9; 3; -1] |> extremes
+
+// -1, 9
+lowest, highest
+
+#!markdown
+
+Listing 6-9. *Pattern matching on tuples using match*
+
+#!fsharp
+
+open System
+
+let tryParseInt (s : string) =
+    match Int32.TryParse(s) with
+    | true, i -> Some i
+    | false, _ -> None
+
+// Some 30
+"30" |> tryParseInt
+
+// None
+"3X" |> tryParseInt
+
+#!markdown
+
+Listing 6-10. *Pattern matching on record types*
+
+#!fsharp
+
+type Track = { Title : string; Artist : string }
+
+let songs =
+    [ { Title = "Summertime"
+        Artist = "Ray Barretto" }
+      { Title = "La clave, maraca y guiro"
+        Artist = "Chico Alvarez" }
+      { Title = "Summertime"
+        Artist = "DJ Jazzy Jeff & The Fresh Prince" } ]
+
+let distinctTitles =
+    songs
+    |> Seq.map (fun song ->
+        match song with
+        | { Title = title } -> title)
+    |> Seq.distinct
+
+// seq ["Summertime"; "La clave, maraca y guiro"]
+distinctTitles
+
+#!markdown
+
+Listing 6-11. *Pattern matching at the function call boundary*
+
+#!fsharp
+
+type TrackDetails = { 
+    Id : int
+    Title : string
+    Artist : string
+    Length : int }
+
+let songs =
+    [ { Id = 1
+        Title = "Summertime"
+        Artist = "Ray Barretto"
+        Length = 99 }
+      { Id = 2
+        Title = "La clave, maraca y guiro"
+        Artist = "Chico Alvarez"
+        Length = 99 }
+      { Id = 3
+        Title = "Summertime"
+        Artist = "DJ Jazzy Jeff & The Fresh Prince"
+        Length = 99 } ]
+
+// The TrackDetails. prefix is is only needed here to avoid a warning when
+// working in Notebooks. (A previous cell defines a record with the same
+// field names.)
+let formatMenuItem ( { TrackDetails.Title = title; TrackDetails.Artist = artist } ) =
+    let shorten (s : string) = s.Substring(0, 10)
+    sprintf "%s - %s" (shorten title) (shorten artist)
+
+// Summertime - Ray Barret
+// La clave,  - Chico Alva
+// Summertime - DJ Jazzy J
+songs
+|> Seq.map formatMenuItem
+|> Seq.iter (printfn "%s")
+
+#!markdown
+
+Listing 6-12. *Pattern Matching on a DU*
+
+#!fsharp
+
+type MeterReading =
+    | Standard of int
+    | Economy7 of Day:int * Night:int
+
+module MeterReading =
+
+    let format(reading : MeterReading) =
+        match reading with
+        | Standard reading ->
+            sprintf "Your reading: %07i" reading
+        | Economy7(Day=day; Night=night) ->
+            sprintf "Your readings: Day: %07i Night: %07i" day night
+
+let reading1 = Standard 12982
+
+let reading2 = Economy7(Day=3432, Night=98218)
+
+// "Your reading: 0012982", "Your readings: Day: 0003432 Night: 0098218"
+reading1 |> MeterReading.format, reading2 |> MeterReading.format
+
+#!markdown
+
+Listing 6-13. *DUs and pattern matching without payload labels*
+
+#!fsharp
+
+type MeterReading =
+    | Standard of int
+    | Economy7 of int * int
+
+module MeterReading =
+
+    let format(reading : MeterReading) =
+        match reading with
+        | Standard reading ->
+            sprintf "Your reading: %07i" reading
+        | Economy7(day, night) ->
+            sprintf "Your readings: Day: %07i Night: %07i" day night
+
+let reading1 = Standard 12982
+
+let reading2 = Economy7(3432, 98218)
+
+// "Your reading: 0012982", "Your readings: Day: 0003432 Night: 0098218"
+reading1 |> MeterReading.format, reading2 |> MeterReading.format
+
+#!markdown
+
+Listing 6-14. *Implementing complex numbers using a single-case DU*
+
+#!fsharp
+
+type Complex =
+    | Complex of Real:float * Imaginary:float
+
+module Complex =     
+
+    let add (Complex(Real=r1;Imaginary=i1)) (Complex(Real=r2;Imaginary=i2)) =
+        Complex(Real=(r1+r2), Imaginary=(i1+i2))
+
+let c1 = Complex(Real = 0.2, Imaginary = 3.4)
+let c2 = Complex(Real = 2.2, Imaginary = 9.8)
+
+// Complex(Real=2.4, Imaginary=13.2)
+let c3 = Complex.add c1 c2
+
+c3
+
+#!markdown
+
+Listing 6-15. *Pattern matching in function declaration, on a multi-case DU*
+
+#!fsharp
+
+type Number =
+    | Real of float
+    | Complex of Real:float * Imaginary:float
+
+module Number = 
+    // Warning: Incomplete pattern matches on this expression...
+    let add (Complex(Real=r1;Imaginary=i1)) (Complex(Real=r2;Imaginary=i2)) =
+            Complex(Real=(r1+r2), Imaginary=(i1+i2))
+
+#!markdown
+
+Listing 6-16. *Handling a multi-case DU in a function parameter*
+
+#!fsharp
+
+type Number =
+    | Real of float
+    | Complex of Real:float * Imaginary:float
+
+module Number = 
+
+    // Gets rid of the compiler warning but doesn't make much sense!
+    let addReal (Complex(Real=a)|Real(a)) (Complex(Real=b)|Real(b)) =
+        Real(a+b)
+
+#!markdown
+
+Listing 6-17. *Pattern matching in a let binding*
+
+#!fsharp
+
+type Complex =
+    | Complex of Real:float * Imaginary:float
+
+let c1 = Complex(Real = 0.2, Imaginary = 3.4)
+
+let (Complex(real, imaginary)) = c1
+// Alternatively:
+// let (Complex(Real=real; Imaginary=imaginary)) = c1
+
+// 0.2, 3.4
+real, imaginary
+
+#!markdown
+
+Listing 6-18. *A let binding from a multi-case DU*
+
+#!fsharp
+
+type Complex =
+    | Real of float
+    | Complex of Real:float * Imaginary:float
+
+let c1 = Complex(Real = 0.2, Imaginary = 3.4)
+
+let (Complex(real, _)|Real (real)) = c1
+
+// 0.2
+real
+
+#!markdown
+
+Listing 6-19. *Expressing a heading as a DU*
+
+#!fsharp
+
+module Heading =
+
+    [<Struct>]
+    type Heading = 
+        private Heading of double
+            member this.Value = this |> fun (Heading h) -> h
+
+    let rec create value =
+        if value >= 0.0 then
+            value % 360.0 |> Heading
+        else
+            value + 360.0 |> create
+
+// "Heading: 180.0"
+let heading1 = Heading.create 180.0
+printfn "Heading: %0.1f" heading1.Value
+
+// "Heading: 90.0"
+let heading2 = Heading.create 450.0
+printfn "Heading: %0.1f" heading2.Value
+
+// "Heading: 270.0"
+let heading3 = Heading.create -450.0
+printfn "Heading: %0.1f" heading3.Value
+
+// "Heading: 270.0"
+let heading4 = Heading.create -810.0
+printfn "Heading: %0.1f" heading4.Value
+
+#!markdown
+
+Listing 6-20. *Expressing a heading as a one-line DU*
+
+#!fsharp
+
+type Heading = Heading of double member this.Value = this |> fun (Heading h) -> h
+
+#!markdown
+
+Listing 6-21. *Pattern matching in loops*
+
+#!fsharp
+
+let fruits =
+    [ "Apples", 3
+      "Oranges", 4
+      "Bananas", 2 ]
+
+// There are 3 Apples
+// There are 4 Oranges
+// There are 2 Bananas
+for (name, count) in fruits do
+    printfn "There are %i %s" count name
+
+// There are 3 Apples
+// There are 4 Oranges
+// There are 2 Bananas
+fruits
+|> List.iter (fun (name, count) ->
+    printfn "There are %i %s" count name)
+
+#!markdown
+
+Listing 6-22. *Pattern matching in loop over a multi-case DU (bad practice!)*
+
+#!fsharp
+
+type Shape =
+    | Circle of Radius:float
+    | Square of Length:float
+    | Rectangle of Length:float * Height:float
+
+let shapes =
+    [ Circle 3.
+      Square 4.
+      Rectangle(5., 6.)
+      Circle 4. ]
+
+// Circle of radius 3.000000
+// Circle of radius 4.000000
+// Compiler wanning: "Incomplete matches on this expression..."
+for (Circle r) in shapes do
+    printfn "Circle of radius %f" r
+
+#!markdown
+
+Listing 6-23. *Simple model of Unix file permissions*
+
+#!fsharp
+
+open System
+
+[<Flags>]
+type FileMode =
+    | None =    0uy
+    | Read =    4uy
+    | Write =   2uy
+    | Execute = 1uy
+
+let canRead (fileMode : FileMode) =
+    fileMode.HasFlag FileMode.Read
+
+let modea = FileMode.Read
+let modeb = FileMode.Write
+let modec = modea ^^^ modeb
+
+// True, False, True
+canRead modea, canRead modeb, canRead modec
+
+#!markdown
+
+Listing 6-24. *Pattern matching on an enum DU without a default case*
+
+#!fsharp
+
+open System
+
+[<Flags>]
+type FileMode =
+    | None =    0uy
+    | Read =    4uy
+    | Write =   2uy
+    | Execute = 1uy
+
+let describeReadability (fileMode : FileMode) =
+    let read =
+        // Compiler warning: "Enums may take values outside known cases..."
+        match fileMode with
+        | FileMode.Read -> "can"
+        | FileMode.None
+        | FileMode.Write
+        | FileMode.Execute -> "cannot"
+
+    printfn "You %s read the file"
+
+#!markdown
+
+Listing 6-25. *A Single Case Active Pattern*
+
+#!fsharp
+
+open System
+
+let (|Currency|) (x : float) =
+    Math.Round(x, 2)
+    
+// true
+match 100./3. with
+| Currency 33.33 -> true
+| _ -> false
+
+#!markdown
+
+Listing 6-26. *Recovering decomposed values with Active Patterns*
+
+#!fsharp
+
+open System
+
+let (|Currency|) (x : float) =
+    Math.Round(x, 2)
+
+// "That didn't match: 33.330000"
+// false
+match 100./3. with
+| Currency 33.34 -> true
+| Currency c ->
+    printfn "That didn't match: %f" c
+    false
+
+// Cs: 33.330000
+let (Currency c) = 1000./30.
+printfn "C: %0.4f" c
+
+let add (Currency c1) (Currency c2) =
+    c1 + c2
+
+// 66.66
+add (100./3.) (1000./30.)
+
+#!markdown
+
+Listing 6-27. *Categorizing wind turbines using Multi-Case Active Patterns and Regex*
+
+#!fsharp
+
+open System.Text.RegularExpressions
+
+let (|Mitsubishi|Samsung|Other|) (s : string) =
+    let m = Regex.Match(s, @"([A-Z]{3})(\-?)(.*)")
+    if m.Success then
+        match m.Groups.[1].Value with
+        | "MWT" -> Mitsubishi
+        | "SWT" -> Samsung
+        | _     -> Other
+    else
+        Other
+
+// From https://eerscmap.usgs.gov/uswtdb/
+let turbines = [
+    "MWT1000"; "MWT1000A"; "MWT102/2.4"; "MWT57/1.0"
+    "SWT1.3_62"; "SWT2.3_101"; "SWT2.3_93"; "SWT-2.3-101"
+    "40/500" ]
+    
+// MWT1000 is a Mitsubishi turbine
+// ...
+// SWT1.3_62 is a Samsung turbine
+// ...
+// 40/500 is an unknown turbine
+turbines
+|> Seq.iter (fun t ->
+    match t with
+    | Mitsubishi -> 
+        printfn "%s is a Mitsubishi turbine" t
+    | Samsung ->    
+        printfn "%s is a Samsung turbine" t
+    | Other ->      
+        printfn "%s is an unknown turbine" t)
+
+#!markdown
+
+Listing 6-28. *Categorizing wind turbines using Partial Active Patterns*
+
+#!fsharp
+
+open System.Text.RegularExpressions
+
+let (|Mitsubishi|_|) (s : string) =
+    let m = Regex.Match(s, @"([A-Z]{3})(\-?)(.*)")
+    if m.Success then
+        match m.Groups.[1].Value with
+        | "MWT" -> Some s
+        | _     -> None
+    else
+        None
+
+// From https://eerscmap.usgs.gov/uswtdb/
+let turbines = [
+    "MWT1000"; "MWT1000A"; "MWT102/2.4"; "MWT57/1.0"
+    "SWT1.3_62"; "SWT2.3_101"; "SWT2.3_93"; "SWT-2.3-101"
+    "40/500" ]
+
+// MWT1000 is a Mitsubishi turbine
+// ...
+// SWT1.3_62 is not a Mitsubishi turbine
+turbines
+|> Seq.iter (fun t ->
+    match t with
+    | Mitsubishi m ->
+        printfn "%s is a Mitsubishi turbine" m
+    | _ as s ->
+        printfn "%s is not a Mitsubishi turbine" s)
+
+#!markdown
+
+Listing 6-29. *Using parameterized Active Patterns to validate postal codes*
+
+#!fsharp
+
+open System
+open System.Text.RegularExpressions
+
+let zipCodes = [ "90210"; "94043"; "10013"; "1OO13" ]
+let postCodes = [ "SW1A 1AA"; "GU9 0RA"; "PO8 0AB"; "P 0AB" ]
+
+let regexZip = @"^\d{5}$"
+// Simplified: the official regex for UK postcodes is much longer!
+let regexPostCode = @"^[A-Z](\d|[A-Z]){1,3} \d[A-Z]{2}$"
+
+let (|PostalCode|) pattern s =
+    let m = Regex.Match(s, pattern)
+    if m.Success then
+        Some s
+    else
+        None
+
+// ["90210"; "94043"; "10013"]
+let validZipCodes =
+    zipCodes
+    |> List.choose (fun (PostalCode regexZip p) -> p)
+
+// ["SW1A 1AA"; "GU9 0RA"; "PO8 0AB"]
+let validPostCodes =
+    postCodes
+    |> List.choose (fun (PostalCode regexPostCode p) -> p)
+
+validZipCodes, validPostCodes
+
+#!markdown
+
+Listing 6-30. *Using & with Active Patterns*
+
+#!fsharp
+
+open System.Text.RegularExpressions
+
+let (|PostCode|) s =
+    let m = Regex.Match(s, @"^[A-Z](\d|[A-Z]){1,3} \d[A-Z]{2}$")
+    if m.Success then
+        Some s
+    else
+        None
+
+let outerLondonPrefixes =
+    ["BR";"CR";"DA";"EN";"HA";"IG";"KT";"RM";"SM";"TW";"UB";"WD"]
+
+let (|OuterLondon|) (s : string) =
+    outerLondonPrefixes
+    |> List.tryFind (s.StartsWith)
+
+let promotionAvailable (postcode : string) =
+    match postcode with
+    | PostCode(Some p) & OuterLondon(Some o) ->
+        printfn "We can offer the promotion in %s (%s)" p o
+    | PostCode(Some p) & OuterLondon(None) ->
+        printfn "We cannot offer the promotion in %s" p
+    | _ ->
+        printfn "Invalid postcode"
+        
+let demo() =
+    // "We cannot offer the promotion in RG7 1DP"
+    "RG7 1DP" |> promotionAvailable
+    // "We can offer the promotion in RM3 5NA (RM)"
+    "RM3 5NA" |> promotionAvailable
+    // "Invalid postcode"
+    "Hullo sky" |> promotionAvailable
+
+demo()
+
+#!markdown
+
+Listing 6-31. *Pattern matching on type*
+
+#!fsharp
+
+type Person (name : string) =
+    member _.Name = name
+
+type Child(name, parent : Person) =
+    inherit Person(name)
+    member _.ParentName =
+        parent.Name
+
+let alice = Person("Alice")
+let bob = Child("Bob", alice)
+let people = [ alice; bob :> Person ]
+
+// Person: Alice
+// Child: Bob of parent Alice
+people
+|> List.iter (fun person ->
+    match person with
+    | :? Child as child ->
+        printfn "Child: %s of parent %s" child.Name child.ParentName
+    | _ as person ->
+        printfn "Person: %s" person.Name)
+
+#!markdown
+
+Listing 6-32. *Using Option.ofObj*
+
+#!fsharp
+
+let myApiFunction (stringParam : string) =
+    let s =
+        stringParam
+        |> Option.ofObj
+        |> Option.defaultValue "(none)"
+    // You can do things here knowing that s isn't null
+    sprintf "%s" (s.ToUpper())
+
+// AN ACTUAL STRING, (NONE)
+myApiFunction "An actual string", myApiFunction null
+
+#!markdown
+
+Listing 6-33. *Pattern matching on null*
+
+#!fsharp
+
+let myApiFunction (stringParam : string) =
+    match stringParam with
+    | null -> "(NONE)"
+    | _ -> stringParam.ToUpper()
+
+// An actual string, (NONE)
+myApiFunction "An actual string", myApiFunction null
+
+#!markdown
+
+## Exercises
+
+#!markdown
+
+Exercise 6-1. *Pattern Matching on Records with DUs*
+
+#!fsharp
+
+// Let’s say you want to amend the code from Listing 6-12 so that a meter reading can have a date. 
+// This is the structure you might come up with:
+
+type MeterValue =
+| Standard of int
+| Economy7 of Day:int * Night:int
+
+type MeterReading =
+    { ReadingDate : DateTime
+      MeterValue : MeterValue }
+
+// How would you amend the body of the MeterReading.format function so that it formats 
+// your new MeterReading type in the following form?
+//
+// "Your readings on: 24/02/2019: Day: 0003432 Night: 0098218"
+// "Your reading on: 23/03/2019 was 0012982"
+//
+// You can use DateTime.ToShortDateString() to format the date.
+
+module MeterReading =
+
+    let format(reading : MeterReading) =
+        raise <| System.NotImplementedException()
+        "TODO"
+
+let reading1 = { ReadingDate = DateTime(2022, 01, 01)
+                 MeterValue = Standard 12982 }
+
+let reading2 = { ReadingDate = DateTime(2022, 01, 01)
+                 MeterValue = Economy7(Day=3432, Night=98218) }
+
+// "Your reading on: 01/01/2022 was 0012982"
+// "Your readings on: 01/01/2022: Day: 0003432 Night: 0098218",
+reading1 |> MeterReading.format, reading2 |> MeterReading.format
+
+#!markdown
+
+Exercise 6-2. *Record Pattern Matching and Loops*
+
+#!fsharp
+
+// Start with this code from Listing 6-21:
+
+let fruits =
+    [ "Apples", 3
+      "Oranges", 4
+      "Bananas", 2 ]
+
+// There are 3 Apples
+// There are 4 Oranges
+// There are 2 Bananas
+for (name, count) in fruits do
+    printfn "There are %i %s" count name
+
+// There are 3 Apples
+// There are 4 Oranges
+// There are 2 Bananas
+fruits
+|> List.iter (fun (name, count) ->
+    printfn "There are %i %s" count name)
+
+// Add a record type called FruitBatch to the code, using field names Name and Count. 
+// How can you alter the fruits binding to create a list of FruitBatch instances, 
+// and the for loop and iter lambas so that they have the same output as they did 
+// before you added the record type?
+
+#!markdown
+
+Exercise 6-3. *Zip+4 Codes and Partial Active Patterns*
+
+#!fsharp
+
+// In the United States, postal codes can take the form of simple 5-digit Zip codes,
+// or ‘Zip+4’ codes, which have five digits, a hyphen, then four more digits. 
+// Here is some code that defines active patterns to identify Zip and Zip+4 codes, 
+// but with the body of the Zip+4 pattern omitted. The exercise is to add the body.
+
+// Hint: a regular expression to match Zip+4 codes is “^(\d{5})\-(\d{4})$”. 
+// When this expression matches, you can use m.Groups.[1].Value and m.Groups.[2].Value 
+// to pick out the prefix and suffix digits.
+
+open System
+open System.Text.RegularExpressions
+
+let zipCodes = [
+    "90210"
+    "94043"
+    "94043-0138"
+    "10013"
+    "90210-3124"
+    // Letter O intead of zero:
+    "1OO13" ]
+
+let (|USZipCode|_|) s =
+    let m = Regex.Match(s, @"^(\d{5})$")
+    if m.Success then
+        USZipCode s |> Some
+    else
+        None
+
+let (|USZipPlus4Code|_|) s =
+    raise <| NotImplementedException()
+
+zipCodes
+|> List.iter (fun z ->
+    match z with
+    | USZipCode c ->
+        printfn "A normal zip code: %s" c
+    | USZipPlus4Code(code, suffix) ->
+        printfn "A Zip+4 code: prefix %s, suffix %s" code suffix
+    | _ as n ->
+        printfn "Not a zip code: %s" n)
+
+#!markdown
+
+## Exercise Solutions
+
+#!markdown
+
+Exercise 6-1. *Pattern Matching on Records with DUs* (Solution) (Pass 1)
+
+#!fsharp
+
+type MeterValue =
+| Standard of int
+| Economy7 of Day:int * Night:int
+
+type MeterReading =
+    { ReadingDate : DateTime
+      MeterValue : MeterValue }
+
+module MeterReading =
+
+    let format(reading : MeterReading) =
+        match reading with
+        | { ReadingDate = readingDate
+            MeterValue = Standard reading } ->
+            sprintf "Your reading on: %s was %07i"
+                (readingDate.ToShortDateString()) reading
+        | { ReadingDate = readingDate
+            MeterValue = Economy7(Day=day; Night=night) } ->
+            sprintf "Your readings on: %s were Day: %07i Night: %07i"
+                (readingDate.ToShortDateString()) day night
+
+let reading1 = { ReadingDate = DateTime(2022, 01, 01)
+                 MeterValue = Standard 12982 }
+
+let reading2 = { ReadingDate = DateTime(2022, 01, 01)
+                 MeterValue = Economy7(Day=3432, Night=98218) }
+
+// "Your reading on: 01/01/2022 was 0012982"
+// "Your readings on: 01/01/2022: Day: 0003432 Night: 0098218",
+reading1 |> MeterReading.format, reading2 |> MeterReading.format
+
+#!markdown
+
+Exercise 6-1. *Pattern Matching on Records with DUs* (Solution) (Pass 2)
+
+#!fsharp
+
+type MeterValue =
+| Standard of int
+| Economy7 of Day:int * Night:int
+
+type MeterReading =
+    { ReadingDate : DateTime
+      MeterValue : MeterValue }
+
+module MeterReading =
+
+    // "MeterReading."" prefix only needed in Notebooks where there may be more than
+    // one definition of MeterReading in scope.
+    let format { MeterReading.ReadingDate = date; MeterReading.MeterValue = meterValue } =
+        let dateString = date.ToShortDateString()
+        match meterValue with
+        | Standard reading ->
+            sprintf "Your reading on: %s was %07i"
+                dateString reading
+        | Economy7(Day=day; Night=night) ->
+            sprintf "Your readings on: %s were Day: %07i Night: %07i"
+                dateString day night
+
+let reading1 = { ReadingDate = DateTime(2022, 01, 01)
+                 MeterValue = Standard 12982 }
+
+let reading2 = { ReadingDate = DateTime(2022, 01, 01)
+                 MeterValue = Economy7(Day=3432, Night=98218) }
+
+// "Your reading on: 01/01/2022 was 0012982"
+// "Your readings on: 01/01/2022: Day: 0003432 Night: 0098218",
+reading1 |> MeterReading.format, reading2 |> MeterReading.format
+
+#!markdown
+
+Exercise 6-2. *Record Pattern Matching and Loops* (Solution)
+
+#!fsharp
+
+type FruitBatch = {
+    Name : string
+    Count : int }
+    
+let fruits =
+    [ { Name="Apples"; Count=3 }
+      { Name="Oranges"; Count=4 }
+      { Name="Bananas"; Count=2 } ]
+
+// There are 3 Apples
+// There are 4 Oranges
+// There are 2 Bananas
+for { Name=name; Count=count } in fruits do
+    printfn "There are %i %s" count name
+
+// There are 3 Apples
+// There are 4 Oranges
+// There are 2 Bananas
+fruits
+|> List.iter (fun { Name=name; Count=count } ->
+    printfn "There are %i %s" count name)
+
+#!markdown
+
+Exercise 6-3. *Zip+4 Codes and Partial Active Patterns* (Solution)
+
+#!fsharp
+
+open System
+open System.Text.RegularExpressions
+
+let zipCodes = [
+    "90210"
+    "94043"
+    "94043-0138"
+    "10013"
+    "90210-3124"
+    // Letter O intead of zero:
+    "1OO13" ]
+
+let (|USZipCode|_|) s =
+    let m = Regex.Match(s, @"^(\d{5})$")
+    if m.Success then
+        USZipCode s |> Some
+    else
+        None
+
+let (|USZipPlus4Code|_|) s =
+    let m = Regex.Match(s, @"^(\d{5})\-(\d{4})$")
+    if m.Success then
+        USZipPlus4Code(m.Groups.[1].Value,
+                       m.Groups.[2].Value)
+        |> Some
+    else
+        None
+
+zipCodes
+|> List.iter (fun z ->
+    match z with
+    | USZipCode c ->
+        printfn "A normal zip code: %s" c
+    | USZipPlus4Code(code, suffix) ->
+        printfn "A Zip+4 code: prefix %s, suffix %s" code suffix
+    | _ as n ->
+        printfn "Not a zip code: %s" n)

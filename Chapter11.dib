@@ -1,0 +1,637 @@
+#!markdown
+
+# Sample code for Chapter 11 of "Stylish F# 6" by Kit Eason
+
+#!markdown
+
+Listing 11-1. *Raising an exception. Where she stops, nobody knows!*
+
+#!fsharp
+
+open System
+
+let checkString (s : string) =
+    if isNull(s) then
+        raise <| ArgumentNullException("Must not be null")
+    elif String.IsNullOrEmpty(s) then
+        raise <| ArgumentException("Must not be empty")
+    elif String.IsNullOrWhiteSpace(s) then
+        raise <| ArgumentException("Must not be white space")
+    else
+        s
+
+// I love F#
+let r1 = checkString "I love F#"
+r1
+
+// Error: System.ArgumentException: Must not be white space
+let r2 = checkString "\t"
+r2
+
+#!markdown
+
+Listing 11-2. *An Outcome Discriminated Union*
+
+#!fsharp
+
+type Outcome<'TSuccess, 'TFailure> =
+    | Success of 'TSuccess
+    | Failure of 'TFailure
+
+#!markdown
+
+Listing 11-3. *The basic adapter in code*
+
+#!fsharp
+
+type Outcome<'TSuccess, 'TFailure> =
+    | Success of 'TSuccess
+    | Failure of 'TFailure
+
+let adapt func input =
+    match input with
+    | Success x -> func x
+    | Failure f -> Failure f
+
+#!markdown
+
+Listing 11-4. *The pass-through adapter in code*
+
+#!fsharp
+
+let passThrough func input =
+    match input with
+    | Success x -> func x |> Success
+    | Failure f -> Failure f
+
+#!markdown
+
+Listing 11-5. *Some password validation code*
+
+#!fsharp
+
+open System
+
+let notEmpty (s : string) =
+    if isNull(s) then
+        Failure "Must not be null"
+    elif String.IsNullOrEmpty(s) then
+        Failure "Must not be empty"
+    elif String.IsNullOrWhiteSpace(s) then
+        Failure "Must not be white space"
+    else
+        Success s
+
+let mixedCase (s : string) =
+    let hasUpper =
+        s |> Seq.exists (Char.IsUpper)
+    let hasLower =
+        s |> Seq.exists (Char.IsLower)
+    if hasUpper && hasLower then
+        Success s
+    else
+        Failure "Must contain mixed case"
+
+let containsAny (cs : string) (s : string) =
+    if s.IndexOfAny(cs.ToCharArray()) > -1 then
+        Success s
+    else
+        Failure (sprintf "Must contain at least one of %A" cs)
+
+let tidy (s : string) =
+    s.Trim()
+
+let save (s : string) =
+    let dbSave s : unit =
+        printfn "Saving password '%s'" s
+        // Uncomment this to simulate an exception:
+        // raise <| Exception "Dummy exception"
+    let log m =
+        printfn "Logging error: %s" m
+    try
+        dbSave s
+        |> Success
+    with
+    | e ->
+        log e.Message
+        Failure "Sorry, there was an internal error saving your password"
+
+#!markdown
+
+Listing 11-6. *Lining the machines up on the factory floor*
+
+#!fsharp
+
+// password:string -> Outcome<unit, string>
+let validateAndSave password =
+
+    let mixedCase' = adapt mixedCase
+    let containsAny' = adapt (containsAny "-_!?")
+    let tidy' = passThrough tidy
+    let save' = adapt save
+
+    password
+    |> notEmpty
+    |> mixedCase'
+    |> containsAny'
+    |> tidy'
+    |> save'
+
+#!markdown
+
+Listing 11-7. *Exercising the validateAndSave function*
+
+#!fsharp
+
+// Failure "Must not be null"
+null |> validateAndSave |> printfn "%A"
+// Failure "Must not be empty"
+"" |> validateAndSave |> printfn "%A"
+// Failure "Must not be white space"
+" " |> validateAndSave |> printfn "%A"
+// Failure "Must contain mixed case"
+"the quick brown fox" |> validateAndSave |> printfn "%A"
+// Failure "Must contain at least one of "-_!?""
+"The quick brown fox" |> validateAndSave |> printfn "%A"
+// Success ()
+"The quick brown fox!" |> validateAndSave |> printfn "%A"
+
+#!markdown
+
+Listing 11-8. *Results of an exception during saving*
+
+#!fsharp
+
+let save (s : string) =
+    let dbSave s : unit =
+        printfn "Saving password '%s'" s
+        raise <| Exception "Dummy exception"
+    let log m =
+        printfn "Logging error: %s" m
+    try
+        dbSave s
+        |> Success
+    with
+    | e ->
+        log e.Message
+        Failure "Sorry, there was an internal error saving your password"
+
+// password:string -> Outcome<unit, string>
+let validateAndSave password =
+
+    let mixedCase' = adapt mixedCase
+    let containsAny' = adapt (containsAny "-_!?")
+    let tidy' = passThrough tidy
+    let save' = adapt save
+
+    password
+    |> notEmpty
+    |> mixedCase'
+    |> containsAny'
+    |> tidy'
+    |> save'
+
+"The quick brown fox!" |> validateAndSave |> printfn "%A"
+
+#!markdown
+
+Listing 11-9. *Composing adapted functions*
+
+#!fsharp
+
+open System
+
+let notEmpty (s : string) =
+    if isNull(s) then
+        Failure "Must not be null"
+    elif String.IsNullOrEmpty(s) then
+        Failure "Must not be empty"
+    elif String.IsNullOrWhiteSpace(s) then
+        Failure "Must not be white space"
+    else
+        Success s
+
+let mixedCase (s : string) =
+    let hasUpper =
+        s |> Seq.exists (Char.IsUpper)
+    let hasLower =
+        s |> Seq.exists (Char.IsLower)
+    if hasUpper && hasLower then
+        Success s
+    else
+        Failure "Must contain mixed case"
+
+let containsAny (cs : string) (s : string) =
+    if s.IndexOfAny(cs.ToCharArray()) > -1 then
+        Success s
+    else
+        Failure (sprintf "Must contain at least one of %A" cs)
+
+let tidy (s : string) =
+    s.Trim()
+
+let save (s : string) =
+    let dbSave s : unit =
+        printfn "Saving password '%s'" s
+        // Uncomment this to simulate an exception:
+        // raise <| Exception "Dummy exception"
+    let log m =
+        printfn "Logging error: %s" m
+    try
+        dbSave s
+        |> Success
+    with
+    | e ->
+        log e.Message
+        Failure "Sorry, there was an internal error saving your password"
+
+// string -> Outcome<unit, string>
+let validateAndSave =
+    notEmpty
+    >> adapt mixedCase
+    >> adapt (containsAny "-_!?")
+    >> passThrough tidy
+    >> adapt save
+
+#!markdown
+
+Listing 11-10. *Using the official Result DU*
+
+#!fsharp
+
+open System
+
+let notEmpty (s : string) =
+    if isNull(s) then
+        Error "Must not be null"
+    elif String.IsNullOrEmpty(s) then
+        Error "Must not be empty"
+    elif String.IsNullOrWhiteSpace(s) then
+        Error "Must not be white space"
+    else
+        Ok s
+
+let mixedCase (s : string) =
+    let hasUpper =
+        s |> Seq.exists (Char.IsUpper)
+    let hasLower =
+        s |> Seq.exists (Char.IsLower)
+    if hasUpper && hasLower then
+        Ok s
+    else
+        Error "Must contain mixed case"
+
+let containsAny (cs : string) (s : string) =
+    if s.IndexOfAny(cs.ToCharArray()) > -1 then
+        Ok s
+    else
+        Error (sprintf "Must contain at least one of %A" cs)
+
+let tidy (s : string) =
+    s.Trim()
+
+let save (s : string) =
+    let dbSave s : unit =
+        printfn "Saving password '%s'" s
+        // Uncomment this to simulate an exception:
+        // raise <| Exception "Dummy exception"
+    let log m =
+        printfn "Logging error: %s" m
+    try
+        dbSave s |> Ok
+    with
+    | e ->
+        log e.Message
+        Error "Sorry, there was an internal error saving your password"
+
+#!markdown
+
+Listing 11-11. *Using bind and map*
+
+#!fsharp
+
+open Result
+
+// string -> Result<unit, string>
+let validateAndSave =
+    notEmpty
+    >> bind mixedCase
+    >> bind (containsAny "-_!?")
+    >> map tidy
+    >> bind save
+
+#!markdown
+
+Listing 11-12. *An error-types Discriminated Union*
+
+#!fsharp
+
+open System
+
+type ValidationError =
+    | MustNotBeNull
+    | MustNotBeEmpty
+    | MustNotBeWhiteSpace
+    | MustContainMixedCase
+    | MustContainOne of chars:string
+    | ErrorSaving of exn:Exception
+
+let notEmpty (s : string) =
+    if isNull(s) then
+        Error MustNotBeNull
+    elif String.IsNullOrEmpty(s) then
+        Error MustNotBeEmpty
+    elif String.IsNullOrWhiteSpace(s) then
+        Error MustNotBeWhiteSpace
+    else
+        Ok s
+
+let mixedCase (s : string) =
+    let hasUpper =
+        s |> Seq.exists (Char.IsUpper)
+    let hasLower =
+        s |> Seq.exists (Char.IsLower)
+    if hasUpper && hasLower then
+        Ok s
+    else
+        Error MustContainMixedCase
+
+let containsAny (cs : string) (s : string) =
+    if s.IndexOfAny(cs.ToCharArray()) > -1 then
+        Ok s
+    else
+        Error (MustContainOne cs)
+
+let tidy (s : string) =
+    s.Trim()
+
+let save (s : string) =
+    let dbSave s : unit =
+        printfn "Saving password '%s'" s
+        // Uncomment this to simulate an exception:
+        raise <| Exception "Dummy exception"
+    try
+        dbSave s
+        |> Ok
+    with
+    | e ->
+        Error (ErrorSaving e)
+
+#!markdown
+
+Listing 11-13. *Using mapError*
+
+#!fsharp
+
+open Result
+
+// string -> Result<unit, ValidationError>
+let validateAndSave =
+    notEmpty
+    >> bind mixedCase
+    >> bind (containsAny "-_!?")
+    >> map tidy
+    >> bind save
+
+let savePassword =
+    let log m =
+        printfn "Logging error: %s" m
+    validateAndSave
+    >> mapError (fun err ->
+        match err with
+        | MustNotBeNull
+        | MustNotBeEmpty
+        | MustNotBeWhiteSpace ->
+            sprintf "Password must be entered"
+        | MustContainMixedCase ->
+            sprintf "Password must contain upper and lower case characters"
+        | MustContainOne cs ->
+            sprintf "Password must contain one of %A" cs
+        | ErrorSaving e ->
+            log e.Message
+            sprintf "Sorry there was an internal error saving the password")
+
+#!markdown
+
+## Exercises
+
+#!markdown
+
+Exercise 11-1. *Reproducing mapError*
+
+#!fsharp
+
+type Outcome<'TSuccess, 'TFailure> =
+    | Success of 'TSuccess
+    | Failure of 'TFailure
+
+let adapt func input =
+    match input with
+    | Success x -> func x
+    | Failure f -> Failure f
+
+let passThrough func input =
+    match input with
+    | Success x -> func x |> Success
+    | Failure f -> Failure f
+
+#!markdown
+
+Exercise 11-2. *Writing an ROP pipeline*
+
+#!fsharp
+
+open System
+
+type Message =
+    { FileName : string
+      Content : float[] }
+
+type Reading =
+    { TimeStamp : DateTimeOffset
+      Data : float[] }
+
+let example =
+    [|
+        { FileName = "2019-02-23T02:00:00-05:00"
+          Content = [|1.0; 2.0; 3.0; 4.0|] }
+        { FileName = "2019-02-23T02:00:10-05:00"
+          Content = [|5.0; 6.0; 7.0; 8.0|] }
+        { FileName = "error"
+          Content = [||] }
+        { FileName = "2019-02-23T02:00:20-05:00"
+          Content = [|1.0; 2.0; 3.0; Double.NaN|] }
+    |]
+
+let log s = printfn "Logging: %s" s
+
+type MessageError =
+    | InvalidFileName of fileName:string
+    | DataContainsNaN of fileName:string * index:int
+
+let getReading message =
+    match DateTimeOffset.TryParse(message.FileName) with
+    | true, dt ->
+        let reading = { TimeStamp = dt; Data = message.Content }
+        // TODO Return an OK result containing a tuple of the
+        // message file name and the reading:
+        raise <| NotImplementedException()
+    | false, _ ->
+        // TODO Return an Error result containing an
+        // InvalidFileName error, which itself contains
+        // the message file name:
+        raise <| NotImplementedException()
+
+let validateData(fileName, reading) =
+    let nanIndex =
+        reading.Data
+        |> Array.tryFindIndex (Double.IsNaN)
+    match nanIndex with
+    | Some i ->
+        // TODO Return an Error result containing an
+        // DataContainsNaN error, which itself contains
+        // the file name and error index:
+        raise <| NotImplementedException()
+    | None ->
+        // TODO Return an Ok result containing the reading:
+        raise <| NotImplementedException()
+
+let logError (e : MessageError) =
+    // TODO match on the MessageError cases
+    // and call log with suitable information
+    // for each case.
+    raise <| NotImplementedException()
+
+// When all the TODOs are done, uncomment this code
+// and see if it works!
+//
+//open Result
+//
+//let processMessage =
+//    getReading
+//    >> bind validateData
+//    >> mapError logError
+//
+//let processData data =
+//    data
+//    |> Array.map processMessage
+//    |> Array.choose (fun result ->
+//        match result with
+//        | Ok reading -> reading |> Some
+//        | Error _ -> None)
+//
+//example
+//|> processData
+//|> Array.iter (printfn "%A")
+
+#!markdown
+
+## Exercise Solutions
+
+#!markdown
+
+Exercise 11-1. *Reproducing mapError* (Solution)
+
+#!fsharp
+
+type Outcome<'TSuccess, 'TFailure> =
+    | Success of 'TSuccess
+    | Failure of 'TFailure
+
+let adapt func input =
+    match input with
+    | Success x -> func x
+    | Failure f -> Failure f
+
+let passThrough func input =
+    match input with
+    | Success x -> func x |> Success
+    | Failure f -> Failure f
+
+let passThroughRejects func input =
+    match input with
+    | Success x -> Success x
+    | Failure f -> func f |> Failure
+
+#!markdown
+
+Exercise 11-2. *Writing an ROP pipeline* (Solution)
+
+#!fsharp
+
+open System
+
+type Message =
+    { FileName : string
+      Content : float[] }
+
+type Reading =
+    { TimeStamp : DateTimeOffset
+      Data : float[] }
+
+let example =
+    [|
+        { FileName = "2019-02-23T02:00:00-05:00"
+          Content = [|1.0; 2.0; 3.0; 4.0|] }
+        { FileName = "2019-02-23T02:00:10-05:00"
+          Content = [|5.0; 6.0; 7.0; 8.0|] }
+        { FileName = "error"
+          Content = [||] }
+        { FileName = "2019-02-23T02:00:20-05:00"
+          Content = [|1.0; 2.0; 3.0; Double.NaN|] }
+    |]
+
+let log s = printfn "Logging: %s" s
+
+type MessageError =
+    | InvalidFileName of fileName:string
+    | DataContainsNaN of fileName:string * index:int
+
+let getReading message =
+    match DateTimeOffset.TryParse(message.FileName) with
+    | true, dt ->
+        let reading = { TimeStamp = dt; Data = message.Content }
+        // DONE
+        Ok(message.FileName, reading)
+    | false, _ ->
+        // DONE
+        Error (InvalidFileName message.FileName)
+
+let validateData(fileName, reading) =
+    let nanIndex =
+        reading.Data
+        |> Array.tryFindIndex (Double.IsNaN)
+    match nanIndex with
+    | Some i ->
+        // DONE
+        Error (DataContainsNaN(fileName, i))
+    | None ->
+        // DONE
+        Ok reading
+
+let logError (e : MessageError) =
+    // DONE
+    match e with
+    | InvalidFileName fn ->
+        log (sprintf "Invalid file name: %s" fn)
+    | DataContainsNaN (fn, i) ->
+        log (sprintf "Data contains NaN at position: %i in file: %s" i fn)
+
+open Result
+
+let processMessage =
+    getReading
+    >> bind validateData
+    >> mapError logError
+
+let processData data =
+    data
+    |> Array.map processMessage
+    |> Array.choose (fun result ->
+        match result with
+        | Ok reading -> reading |> Some
+        | Error _ -> None)
+
+example
+|> processData
+|> Array.iter (printfn "%A")
